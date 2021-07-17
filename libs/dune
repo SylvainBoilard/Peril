@@ -1,0 +1,20 @@
+(library
+ (name            freetype)
+ (modules         FreeType)
+ (wrapped         false)
+ (libraries       bigarray)
+ (foreign_stubs
+  (language       c)
+  (names          FreeType_stubs)
+  (include_dirs   /usr/include/freetype2 /usr/include/libpng16))
+ (c_library_flags (-lfreetype)))
+
+(library
+ (name            gl)
+ (modules         GL)
+ (wrapped         false)
+ (libraries       bigarray)
+ (foreign_stubs
+  (language       c)
+  (names          GL_stubs))
+ (c_library_flags (-lGL)))
