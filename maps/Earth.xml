@@ -1,0 +1,13 @@
+<peril>
+  <background>Earth.png</background>
+
+  <territory name="British Isles" id="br" adjacent="ice,sca,eun,euw" color="#0000ff"/>
+  <territory name="Iceland" id="ice" adjacent="br,sca" color="#4040ff"/>
+  <territory name="Northern Europe" id="eun" adjacent="br,eun,eus,eue,euw" color="#0080ff"/>
+  <territory name="Scandinavia" id="sca" adjacent="br,ice,eun,eue" color="#8000ff"/>
+  <territory name="Southern Europe" id="eus" adjacent="eun,eue,euw" color="#0000ff"/>
+  <territory name="Eastern Europe" id="eue" adjacent="sca,eun,eus" color="#0080ff"/>
+  <territory name="Western Europe" id="euw" adjacent="br,eun,eus" color="#8000ff"/>
+
+  <continent name="Europe" reinforcement="5" territories="br,ice,eun,sca,eus,eue,euw"/>
+</peril>
