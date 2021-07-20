@@ -1,12 +1,19 @@
 type color = { r: float; g: float; b: float }
 
-let edition_mode = ref false
+let world_of_frame_coords c =
+  Vec2.{ x = c.x /. 250.0 -. 1.6; y = c.y /. -250.0 +. 1.0 }
 
 let color_of_hex str =
   Scanf.sscanf str "#%2x%2x%2x" (fun r g b ->
       { r = float_of_int r /. 255.0;
         g = float_of_int g /. 255.0;
         b = float_of_int b /. 255.0 })
+
+let hex_of_color color =
+  Printf.sprintf "#%02x%02x%02x"
+    (truncate (color.r *. 255.0))
+    (truncate (color.g *. 255.0))
+    (truncate (color.b *. 255.0))
 
 let load_program directory name =
   let filename_prefix = Printf.sprintf "%s/%s" directory name in

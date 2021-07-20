@@ -6,7 +6,7 @@ attribute lowp vec4 VertexColor;
 varying mediump vec2 TextureCoord;
 varying lowp vec4 Color;
 
-const vec2 aspect_ratio = vec2(0.625, -1.0);
+const vec2 aspect_ratio = vec2(0.625, 1.0);
 
 void main()
 {

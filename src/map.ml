@@ -35,18 +35,14 @@ let default_shape = [|
     { x = 0.1; y = -0.1 }
   |]
 
-let offset_shape dx dy shape =
-  let open Vec2 in
-  Array.map (fun { x; y } -> { x = x +. dx; y = y +. dy }) shape
-
 let load_from_xml_file filename =
   let open Xmlm in
   let shape_offset = ref 0 in
   let in_map = open_in filename in
   let xml_map = make_input ~strip:true (`Channel in_map) in
   let background = ref "" in
-  let territories = Hashtbl.create 64 in
-  let continents = Hashtbl.create 8 in
+  let territories = ref [] in
+  let continents = ref [] in
   let rec drop () = match input xml_map with
     | `Data _ | `Dtd _ -> drop ()
     | `El_end -> ()
@@ -79,10 +75,15 @@ let load_from_xml_file filename =
     let id = attr_assoc "id" attrs in
     let adjacent = attr_assoc "adjacent" attrs |> String.split_on_char ',' in
     let color = attr_assoc_opt "color" attrs |> Option.value ~default:"#ffffff" |> Utils.color_of_hex in
-    let dx = float_of_int (!shape_offset mod 3 - 1) *. 0.25 in
-    let dy = float_of_int (!shape_offset / 3 - 1) *. 0.25 in
-    incr shape_offset;
-    let shape = aux (offset_shape dx dy default_shape) in
+    let shape =
+      let tmp_shape = aux default_shape in
+      if tmp_shape == default_shape then (
+        let dx = float_of_int (!shape_offset mod 5 - 2) *. 0.25 in
+        let dy = float_of_int (2 - !shape_offset / 5) *. 0.25 in
+        incr shape_offset;
+        Array.map Vec2.(add { x = dx; y = dy }) default_shape
+      ) else tmp_shape
+    in
     { name; id; adjacent; shape; color }
   in
   let read_continent attrs =
@@ -100,11 +101,11 @@ let load_from_xml_file filename =
        peril_scope ()
     | `El_start ((_, "territory"), attrs) ->
        let territory = read_territory attrs in
-       Hashtbl.add territories territory.id territory;
+       territories := territory :: !territories;
        peril_scope ()
     | `El_start ((_, "continent"), attrs) ->
        let continent = read_continent attrs in
-       Hashtbl.add continents continent.name continent;
+       continents := continent :: !continents;
        peril_scope ()
     | `El_start _ -> drop (); peril_scope ()
   in
@@ -117,6 +118,60 @@ let load_from_xml_file filename =
   global_scope ();
   close_in in_map;
   let background = !background in
-  let territories = Array.of_seq (Hashtbl.to_seq_values territories) in
-  let continents = Array.of_seq (Hashtbl.to_seq_values continents) in
+  let territories = Array.of_list (List.rev !territories) in
+  let continents = Array.of_list (List.rev !continents) in
   { background; territories; continents }
+
+let save_to_xml_file map filename =
+  let open Xmlm in
+  let out_map = open_out filename in
+  let xml_map = make_output ~nl:true ~indent:(Some 2) (`Channel out_map) in
+  output xml_map (`Dtd None);
+  output xml_map (`El_start (("", "peril"), []));
+  output xml_map (`El_start (("", "background"), []));
+  output xml_map (`Data map.background);
+  output xml_map (`El_end);
+  Array.iter (fun (t : territory) ->
+      let attrs =
+        [ ("", "name"), t.name;
+          ("", "id"), t.id;
+          ("", "adjacent"), String.concat "," t.adjacent;
+          ("", "color"), Utils.hex_of_color t.color ]
+      in
+      output xml_map (`El_start (("", "territory"), attrs));
+      let data =
+        Array.map (fun Vec2.{x;y} -> Printf.sprintf "%g, %g" x y) t.shape
+        |> Array.to_list |> String.concat ", "
+      in
+      output xml_map (`Data data);
+      output xml_map (`El_end)
+    ) map.territories;
+  Array.iter (fun (c : continent) ->
+      let attrs =
+        [ ("", "name"), c.name;
+          ("", "reinforcement"), string_of_int c.reinforcement;
+          ("", "territories"), String.concat "," c.territories ]
+      in
+      output xml_map (`El_start (("", "continent"), attrs));
+      output xml_map (`El_end)
+    ) map.continents;
+  output xml_map (`El_end);
+  close_out out_map
+
+let find_territory_at_coord map coord =
+  let for_all_successive_pairs_cycle f a =
+    let len = Array.length a in
+    let rec aux = function
+      | i when i + 1 = len -> f a.(i) a.(0)
+      | i when f a.(i) a.(i + 1) -> aux (i + 1)
+      | _ -> false
+    in
+    len < 2 || aux 0
+  in
+  let len = Array.length map.territories in
+  let rec loop = function
+    | i when i = len -> None
+    | i when for_all_successive_pairs_cycle (fun v1 v2 -> Vec2.side v1 v2 coord <= 0.0) map.territories.(i).shape -> Some map.territories.(i)
+    | i -> loop (i + 1)
+  in
+  loop 0
