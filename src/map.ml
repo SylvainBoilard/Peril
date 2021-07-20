@@ -1,11 +1,9 @@
-open Utils
-
 type territory = {
     name: string;
     id: string;
     adjacent: string list;
-    shape: vec2 array;
-    color: color;
+    shape: Vec2.t array;
+    color: Utils.color;
   }
 
 type continent = {
@@ -31,13 +29,14 @@ let rec attr_assoc_opt name = function
   | _ :: tl -> attr_assoc_opt name tl
 
 let default_shape = [|
-    { x = 0.1; y = 0.1 };
+    Vec2.{ x = 0.1; y = 0.1 };
     { x = -0.1; y = 0.1 };
     { x = -0.1; y = -0.1 };
     { x = 0.1; y = -0.1 }
   |]
 
 let offset_shape dx dy shape =
+  let open Vec2 in
   Array.map (fun { x; y } -> { x = x +. dx; y = y +. dy }) shape
 
 let load_from_xml_file filename =
@@ -69,7 +68,7 @@ let load_from_xml_file filename =
            | [] | [ _ ] -> Array.of_list (List.rev acc)
            | x :: y :: tl ->
               let x, y = float_of_string x, float_of_string y in
-              pack ({ x; y } :: acc) tl
+              pack (Vec2.{ x; y } :: acc) tl
          in
          aux (pack [] Str.(split (regexp "[, ]+") data))
       | `Dtd _ -> aux acc
@@ -79,7 +78,7 @@ let load_from_xml_file filename =
     let name = attr_assoc "name" attrs in
     let id = attr_assoc "id" attrs in
     let adjacent = attr_assoc "adjacent" attrs |> String.split_on_char ',' in
-    let color = attr_assoc_opt "color" attrs |> Option.value ~default:"#ffffff" |> color_of_hex in
+    let color = attr_assoc_opt "color" attrs |> Option.value ~default:"#ffffff" |> Utils.color_of_hex in
     let dx = float_of_int (!shape_offset mod 3 - 1) *. 0.25 in
     let dy = float_of_int (!shape_offset / 3 - 1) *. 0.25 in
     incr shape_offset;

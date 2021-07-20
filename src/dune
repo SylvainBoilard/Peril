@@ -4,5 +4,5 @@
 
 (executable
  (name peril)
- (libraries bigarray str glfw-ocaml gl freetype xmlm imagelib.unix)
+ (libraries bigarray str glfw-ocaml gl freetype xmlm uutf imagelib.unix)
  (promote (until-clean) (into ..)))

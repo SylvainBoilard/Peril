@@ -1,5 +1,6 @@
-type vec2 = { x: float; y: float }
 type color = { r: float; g: float; b: float }
+
+let edition_mode = ref false
 
 let color_of_hex str =
   Scanf.sscanf str "#%2x%2x%2x" (fun r g b ->

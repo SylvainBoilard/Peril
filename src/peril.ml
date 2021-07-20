@@ -12,6 +12,7 @@ let key_callback window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
   match key, action with
   | Escape, Press -> setWindowShouldClose window true
+  | F3, Press -> Utils.edition_mode := not !Utils.edition_mode
   | _ -> ()
 
 let make_basic_shader () =
@@ -49,32 +50,33 @@ let () =
   in
   let territories_texture = Utils.make_white_pixel_texture () in
   let territories_buffer =
-    let territories_data = Array1.create Float32 C_layout (Array.length map.territories * 36) in
+    let territories_data = Array1.create Float32 C_layout (Array.length map.territories * 24) in
     Array.iteri (fun i (t : Map.territory) ->
-        let offset = i * 36 in
-        Array.iteri (fun j k ->
+        let offset = i * 24 in
+        Array.iteri (fun j (v : Vec2.t) ->
             let offset = offset + j * 6 in
-            let v = t.shape.(k) in
             territories_data.{offset} <- v.x;
             territories_data.{offset + 1} <- v.y;
-            territories_data.{offset + 2} <- t.color.r;
-            territories_data.{offset + 3} <- t.color.g;
-            territories_data.{offset + 4} <- t.color.b;
+            territories_data.{offset + 2} <- 0.0;
+            territories_data.{offset + 3} <- 0.0;
+            territories_data.{offset + 4} <- 0.0;
             territories_data.{offset + 5} <- 1.0
-          ) [| 0; 1; 3; 3; 1; 2 |]
+          ) t.shape
       ) map.territories;
     let buffer = GL.genBuffer () in
     GL.bindBuffer GL.ArrayBuffer buffer;
     GL.bufferData GL.ArrayBuffer territories_data GL.DynamicDraw;
     buffer
   in
-  let territories_vertex_count = Array.length map.territories * 6 in
+  let text_ctx = Text.init () in
+  let text_font = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
+  let edition_mode_text = Text.make text_ctx text_font "Edition" in
   while not (GLFW.windowShouldClose window) do
     GLFW.pollEvents ();
 
     GL.useProgram basic_shader.program;
     GL.activeTexture 0;
-    GL.uniform1f basic_shader.texture_location 0.0;
+    GL.uniform1i basic_shader.texture_location 0;
 
     GL.bindTexture GL.Texture2D background_texture;
     GL.bindBuffer GL.ArrayBuffer background_buffer;
@@ -89,17 +91,22 @@ let () =
     GL.disableVertexAttribArray basic_shader.vertex_texture_coord_location;
     GL.disableVertexAttribArray basic_shader.vertex_coord_location;
 
-    GL.bindTexture GL.Texture2D territories_texture;
-    GL.bindBuffer GL.ArrayBuffer territories_buffer;
-    GL.vertexAttribPointer basic_shader.vertex_coord_location 2 GL.Float false 24 0;
-    GL.enableVertexAttribArray basic_shader.vertex_coord_location;
-    GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 24 8;
-    GL.enableVertexAttribArray basic_shader.vertex_color_location;
-    GL.drawArrays GL.Triangles 0 territories_vertex_count;
-    GL.disableVertexAttribArray basic_shader.vertex_color_location;
-    GL.disableVertexAttribArray basic_shader.vertex_coord_location;
+    if !Utils.edition_mode then (
+      GL.bindTexture GL.Texture2D territories_texture;
+      GL.bindBuffer GL.ArrayBuffer territories_buffer;
+      GL.vertexAttribPointer basic_shader.vertex_coord_location 2 GL.Float false 24 0;
+      GL.enableVertexAttribArray basic_shader.vertex_coord_location;
+      GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 24 8;
+      GL.enableVertexAttribArray basic_shader.vertex_color_location;
+      Array.iteri (fun i _ -> GL.drawArrays GL.LineLoop (i * 4) 4) map.territories;
+      GL.disableVertexAttribArray basic_shader.vertex_color_location;
+      GL.disableVertexAttribArray basic_shader.vertex_coord_location;
+
+      Text.draw text_ctx edition_mode_text { x = 10.0; y = 26.0 } 0.0 0.0 0.0
+    );
 
     GLFW.swapBuffers window
   done;
+  Text.destroy edition_mode_text;
   GLFW.destroyWindow window;
   GLFW.terminate ()
