@@ -3,6 +3,9 @@ type color = { r: float; g: float; b: float }
 let world_of_frame_coords c =
   Vec2.{ x = c.x /. 250.0 -. 1.6; y = c.y /. -250.0 +. 1.0 }
 
+let frame_of_world_coords c =
+  Vec2.{ x = (c.x +. 1.6) *. 250.0; y = (c.y -. 1.0) *. -250.0 }
+
 let color_of_hex str =
   Scanf.sscanf str "#%2x%2x%2x" (fun r g b ->
       { r = float_of_int r /. 255.0;
@@ -47,6 +50,22 @@ let load_program directory name =
       Printf.eprintf "%s\n%!" s)
     (GL.getProgramInfoLog program);
   program
+
+type basic_shader = {
+    program: GL.program;
+    vertex_coord_location: GL.attrib_location;
+    vertex_color_location: GL.attrib_location;
+    vertex_texture_coord_location: GL.attrib_location;
+    texture_location: GL.uniform_location;
+  }
+
+let make_basic_shader () =
+  let program = load_program "shaders" "basic" in
+  let vertex_coord_location = GL.getAttribLocation program "VertexCoord" in
+  let vertex_color_location = GL.getAttribLocation program "VertexColor" in
+  let vertex_texture_coord_location = GL.getAttribLocation program "VertexTextureCoord" in
+  let texture_location = GL.getUniformLocation program "Texture" in
+  { program; vertex_coord_location; vertex_color_location; vertex_texture_coord_location; texture_location }
 
 let load_texture filename =
   let open Bigarray in

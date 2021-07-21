@@ -1,1 +1,1 @@
-(data_only_dirs maps shaders)
+(data_only_dirs gfx maps shaders)

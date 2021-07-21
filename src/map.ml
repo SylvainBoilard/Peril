@@ -175,3 +175,24 @@ let find_territory_at_coord map coord =
     | i -> loop (i + 1)
   in
   loop 0
+
+type shape_poi = Corner of int | Edge of int * int | NoPOI
+
+let find_poi_of_shape_at_coord shape coord =
+  let len = Array.length shape in
+  let rec aux_edges = function
+    | i when i + 1 = len ->
+       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(0) 0.5) coord)) <= 0.00025
+       then Edge (i, 0)
+       else NoPOI
+    | i ->
+       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(i + 1) 0.5) coord)) <= 0.00025
+       then Edge (i, i + 1)
+       else aux_edges (i + 1)
+  in
+  let rec aux_corners = function
+    | i when i = len -> aux_edges 0
+    | i when Vec2.(sqr_mag (sub shape.(i) coord)) <= 0.00025 -> Corner i
+    | i -> aux_corners (i + 1)
+  in
+  aux_corners 0
