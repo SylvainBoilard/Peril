@@ -54,18 +54,18 @@ let load_program directory name =
 type basic_shader = {
     program: GL.program;
     vertex_coords_location: GL.attrib_location;
-    vertex_color_location: GL.attrib_location;
     vertex_texture_coords_location: GL.attrib_location;
+    vertex_color_location: GL.attrib_location;
     texture_location: GL.uniform_location;
   }
 
 let make_basic_shader () =
   let program = load_program "shaders" "basic" in
   let vertex_coords_location = GL.getAttribLocation program "VertexCoords" in
-  let vertex_color_location = GL.getAttribLocation program "VertexColor" in
   let vertex_texture_coords_location = GL.getAttribLocation program "VertexTextureCoords" in
+  let vertex_color_location = GL.getAttribLocation program "VertexColor" in
   let texture_location = GL.getUniformLocation program "Texture" in
-  { program; vertex_coords_location; vertex_color_location; vertex_texture_coords_location; texture_location }
+  { program; vertex_coords_location; vertex_texture_coords_location; vertex_color_location; texture_location }
 
 let load_texture filename =
   let open Bigarray in
