@@ -13,7 +13,7 @@ let key_callback map window key _(*scancode*) action _(*modifiers*) =
   | F5, Press when !edition_mode -> Map.save_to_xml_file map "maps/Earth.xml"
   | _ -> ()
 
-let mouse_button_callback map window button pressed _(*modifiers*) =
+let mouse_button_callback (map : Map.t) window button pressed _(*modifiers*) =
   let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
   let cursor_coords = world_of_frame_coords cursor_pos in
   match button, pressed with
@@ -25,7 +25,27 @@ let mouse_button_callback map window button pressed _(*modifiers*) =
         let cursor_pos = frame_of_world_coords t.shape.(n) in
         GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
         GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
-     |  _ -> selected_territory := Map.find_territory_at_coords map cursor_coords
+     | Edge (n, m) ->
+        let new_shape =
+          Array.init (Array.length t.shape + 1) (fun i ->
+              if i <= n
+              then t.shape.(i)
+              else if i = n + 1
+              then Vec2.lerp t.shape.(n) t.shape.(m) 0.5
+              else t.shape.(i - 1)
+            )
+        in
+        Array.iteri (fun i t' ->
+            if t' == t then (
+              map.territories.(i) <- { t with shape = new_shape };
+              selected_territory := Some map.territories.(i);
+              selected_poi := Corner (n + 1)
+            )
+          ) map.territories;
+        let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
+        GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
+        GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
+     |  NoPOI -> selected_territory := Map.find_territory_at_coords map cursor_coords
      end
   | 0, true -> selected_territory := Map.find_territory_at_coords map cursor_coords
   | 0, false ->
@@ -102,19 +122,20 @@ let () =
     draw_background basic_shader background_texture background_buffer;
 
     if !edition_mode then (
-      let territories_data = Array1.create Float32 C_layout (Array.length map.territories * 24) in
-      Array.iteri (fun i (t : Map.territory) ->
-          let offset = i * 24 in
-          Array.iteri (fun j (v : Vec2.t) ->
-              let offset = offset + j * 6 in
+      let vertices_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
+      let territories_data = Array1.create Float32 C_layout (vertices_count * 6) in
+      Array.fold_left (fun i (t : Map.territory) ->
+          Array.fold_left (fun i (v : Vec2.t) ->
+              let offset = i * 6 in
               territories_data.{offset} <- v.x;
               territories_data.{offset + 1} <- v.y;
               territories_data.{offset + 2} <- 0.0;
               territories_data.{offset + 3} <- 0.0;
               territories_data.{offset + 4} <- 0.0;
-              territories_data.{offset + 5} <- 1.0
-            ) t.shape
-        ) map.territories;
+              territories_data.{offset + 5} <- 1.0;
+              i + 1
+            ) i t.shape
+        ) 0 map.territories |> ignore;
       GL.bindBuffer GL.ArrayBuffer territories_buffer;
       GL.bufferData GL.ArrayBuffer territories_data GL.StreamDraw;
       GL.bindTexture GL.Texture2D territories_texture;
@@ -122,17 +143,23 @@ let () =
       GL.enableVertexAttribArray basic_shader.vertex_coords_location;
       GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 24 8;
       GL.enableVertexAttribArray basic_shader.vertex_color_location;
-      Array.iteri (fun i _ ->
-          GL.drawArrays GL.LineLoop (i * 4) 4
-        ) map.territories;
+      Array.fold_left (fun i (t : Map.territory) ->
+          let len = Array.length t.shape in
+          GL.drawArrays GL.LineLoop i len;
+          i + len
+        ) 0 map.territories |> ignore;
       GL.disableVertexAttribArray basic_shader.vertex_color_location;
       GL.disableVertexAttribArray basic_shader.vertex_coords_location;
 
       if !selected_territory <> None && !selected_poi = NoPOI then (
         let selected_territory_shape = (Option.get !selected_territory).shape in
-        match Map.find_poi_of_shape_at_coords selected_territory_shape cursor_coords with
-        | Corner n ->
-           let coords = selected_territory_shape.(n) in
+        let dot_coords = match Map.find_poi_of_shape_at_coords selected_territory_shape cursor_coords with
+          | Corner n -> Some selected_territory_shape.(n)
+          | Edge (n, m) -> Some (Vec2.lerp selected_territory_shape.(n) selected_territory_shape.(m) 0.5)
+          | NoPOI -> None
+        in
+        match dot_coords with
+        | Some coords ->
            let buffer_data = [|
                coords.x +. 0.016; coords.y +. 0.016;   1.0; 0.0;   1.0; 1.0; 1.0; 1.0;
                coords.x -. 0.016; coords.y +. 0.016;   0.0; 0.0;   1.0; 1.0; 1.0; 1.0;
@@ -156,7 +183,7 @@ let () =
            GL.disableVertexAttribArray basic_shader.vertex_texture_coords_location;
            GL.disableVertexAttribArray basic_shader.vertex_coords_location;
            GL.disable GL.Blend
-        | _ -> ()
+        | None -> ()
       );
 
       Text.draw text_ctx edition_mode_text { x = 10.0; y = 26.0 } 0.0 0.0 0.0

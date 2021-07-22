@@ -182,17 +182,17 @@ let find_poi_of_shape_at_coords shape coords =
   let len = Array.length shape in
   let rec aux_edges = function
     | i when i + 1 = len ->
-       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(0) 0.5) coords)) <= 0.00025
+       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(0) 0.5) coords)) <= 0.0005
        then Edge (i, 0)
        else NoPOI
     | i ->
-       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(i + 1) 0.5) coords)) <= 0.00025
+       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(i + 1) 0.5) coords)) <= 0.0005
        then Edge (i, i + 1)
        else aux_edges (i + 1)
   in
   let rec aux_corners = function
     | i when i = len -> aux_edges 0
-    | i when Vec2.(sqr_mag (sub shape.(i) coords)) <= 0.00025 -> Corner i
+    | i when Vec2.(sqr_mag (sub shape.(i) coords)) <= 0.0005 -> Corner i
     | i -> aux_corners (i + 1)
   in
   aux_corners 0
