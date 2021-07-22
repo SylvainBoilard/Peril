@@ -1,7 +1,7 @@
 type context = {
     program : GL.program;
-    vertex_coord_location : GL.attrib_location;
-    vertex_texture_coord_location : GL.attrib_location;
+    vertex_coords_location : GL.attrib_location;
+    vertex_texture_coords_location : GL.attrib_location;
     view_offset_location : GL.uniform_location;
     face_texture_location : GL.uniform_location;
     color_location : GL.uniform_location;
@@ -43,8 +43,8 @@ let init () =
   GL.texParameter GL.Texture2D GL.MagFilter GL.Nearest;
   FreeType.init ();
   { program;
-    vertex_coord_location = GL.getAttribLocation program "VertexCoord";
-    vertex_texture_coord_location = GL.getAttribLocation program "VertexTextureCoord";
+    vertex_coords_location = GL.getAttribLocation program "VertexCoords";
+    vertex_texture_coords_location = GL.getAttribLocation program "VertexTextureCoords";
     view_offset_location = GL.getUniformLocation program "ViewOffset";
     face_texture_location = GL.getUniformLocation program "FaceTexture";
     color_location = GL.getUniformLocation program "Color";
@@ -156,12 +156,12 @@ let draw ctx text (position : Vec2.t) r g b =
   GL.uniform1i ctx.face_texture_location 0;
   GL.bindTexture GL.Texture2D ctx.glyphs_texture;
   GL.bindBuffer GL.ArrayBuffer text.data_buffer;
-  GL.vertexAttribPointer ctx.vertex_coord_location 2 GL.Float false 16 0;
-  GL.enableVertexAttribArray ctx.vertex_coord_location;
-  GL.vertexAttribPointer ctx.vertex_texture_coord_location 2 GL.Float false 16 8;
-  GL.enableVertexAttribArray ctx.vertex_texture_coord_location;
+  GL.vertexAttribPointer ctx.vertex_coords_location 2 GL.Float false 16 0;
+  GL.enableVertexAttribArray ctx.vertex_coords_location;
+  GL.vertexAttribPointer ctx.vertex_texture_coords_location 2 GL.Float false 16 8;
+  GL.enableVertexAttribArray ctx.vertex_texture_coords_location;
   GL.bindBuffer GL.ElementArrayBuffer text.indices_buffer;
   GL.drawElements GL.Triangles text.elements_count GL.UnsignedShort 0;
-  GL.disableVertexAttribArray ctx.vertex_texture_coord_location;
-  GL.disableVertexAttribArray ctx.vertex_coord_location;
+  GL.disableVertexAttribArray ctx.vertex_texture_coords_location;
+  GL.disableVertexAttribArray ctx.vertex_coords_location;
   GL.disable GL.Blend

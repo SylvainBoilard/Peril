@@ -158,7 +158,7 @@ let save_to_xml_file map filename =
   output xml_map (`El_end);
   close_out out_map
 
-let find_territory_at_coord map coord =
+let find_territory_at_coords map coords =
   let for_all_successive_pairs_cycle f a =
     let len = Array.length a in
     let rec aux = function
@@ -171,28 +171,28 @@ let find_territory_at_coord map coord =
   let len = Array.length map.territories in
   let rec loop = function
     | i when i = len -> None
-    | i when for_all_successive_pairs_cycle (fun v1 v2 -> Vec2.side v1 v2 coord <= 0.0) map.territories.(i).shape -> Some map.territories.(i)
+    | i when for_all_successive_pairs_cycle (fun v1 v2 -> Vec2.side v1 v2 coords <= 0.0) map.territories.(i).shape -> Some map.territories.(i)
     | i -> loop (i + 1)
   in
   loop 0
 
 type shape_poi = Corner of int | Edge of int * int | NoPOI
 
-let find_poi_of_shape_at_coord shape coord =
+let find_poi_of_shape_at_coords shape coords =
   let len = Array.length shape in
   let rec aux_edges = function
     | i when i + 1 = len ->
-       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(0) 0.5) coord)) <= 0.00025
+       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(0) 0.5) coords)) <= 0.00025
        then Edge (i, 0)
        else NoPOI
     | i ->
-       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(i + 1) 0.5) coord)) <= 0.00025
+       if Vec2.(sqr_mag (sub (lerp shape.(i) shape.(i + 1) 0.5) coords)) <= 0.00025
        then Edge (i, i + 1)
        else aux_edges (i + 1)
   in
   let rec aux_corners = function
     | i when i = len -> aux_edges 0
-    | i when Vec2.(sqr_mag (sub shape.(i) coord)) <= 0.00025 -> Corner i
+    | i when Vec2.(sqr_mag (sub shape.(i) coords)) <= 0.00025 -> Corner i
     | i -> aux_corners (i + 1)
   in
   aux_corners 0
