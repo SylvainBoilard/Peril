@@ -157,8 +157,21 @@ let save_to_xml_file map filename =
   output xml_map (`El_end);
   close_out out_map
 
+let shape_is_convex shape =
+  let aux v1 v2 =
+    Array.for_all (fun v -> v == v1 || v == v2 || Vec2.side v1 v2 v <= 0.0) shape
+  in
+  Array.length shape <= 2 || Array.for_all_successive_pairs_loop aux shape
+
 let validate map =
+  Array.fold_left (fun ids t ->
+      if List.mem t.id ids
+      then (Printf.eprintf "%s reuses id %s.\n%!" t.name t.id; ids)
+      else t.id :: ids
+    ) [] map.territories |> ignore;
   Array.iter (fun t ->
+      if not (shape_is_convex t.shape) then
+        Printf.eprintf "%s's shape is not convex.\n%!" t.name;
       if t.adjacent = [] then
         Printf.eprintf "%s is not adjacent to any territory.\n%!" t.name
       else
