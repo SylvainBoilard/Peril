@@ -1,3 +1,5 @@
+open Utils
+
 type territory = {
     name: string;
     id: string;
@@ -159,22 +161,9 @@ let save_to_xml_file map filename =
   close_out out_map
 
 let find_territory_at_coords map coords =
-  let for_all_successive_pairs_cycle f a =
-    let len = Array.length a in
-    let rec aux = function
-      | i when i + 1 = len -> f a.(i) a.(0)
-      | i when f a.(i) a.(i + 1) -> aux (i + 1)
-      | _ -> false
-    in
-    len < 2 || aux 0
-  in
-  let len = Array.length map.territories in
-  let rec loop = function
-    | i when i = len -> None
-    | i when for_all_successive_pairs_cycle (fun v1 v2 -> Vec2.side v1 v2 coords <= 0.0) map.territories.(i).shape -> Some map.territories.(i)
-    | i -> loop (i + 1)
-  in
-  loop 0
+  Array.find_opt (fun t ->
+      Array.for_all_successive_pairs_loop (fun v1 v2 -> Vec2.side v1 v2 coords <= 0.0) t.shape
+    ) map.territories
 
 type shape_poi = Corner of int | Edge of int * int | NoPOI
 

@@ -1,3 +1,26 @@
+module Array =
+  struct
+    include Array
+
+    let for_all_successive_pairs_loop f a =
+      let len = length a in
+      let rec aux = function
+        | i when i + 1 = len -> f a.(i) a.(0)
+        | i when f a.(i) a.(i + 1) -> aux (i + 1)
+        | _ -> false
+      in
+      len < 2 || aux 0
+
+    let find_opt f a =
+      let len = length a in
+      let rec aux = function
+        | i when i = len -> None
+        | i when f a.(i) -> Some a.(i)
+        | i -> aux (i + 1)
+      in
+      aux 0
+  end
+
 type color = { r: float; g: float; b: float }
 
 let world_of_frame_coords c =
