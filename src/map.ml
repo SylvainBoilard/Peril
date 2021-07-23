@@ -5,7 +5,6 @@ type territory = {
     id: string;
     adjacent: string list;
     shape: Vec2.t array;
-    color: Utils.color;
   }
 
 type continent = {
@@ -76,7 +75,6 @@ let load_from_xml_file filename =
     let name = attr_assoc "name" attrs in
     let id = attr_assoc "id" attrs in
     let adjacent = attr_assoc "adjacent" attrs |> String.split_on_char ',' in
-    let color = attr_assoc_opt "color" attrs |> Option.value ~default:"#ffffff" |> Utils.color_of_hex in
     let shape =
       let tmp_shape = aux default_shape in
       if tmp_shape == default_shape then (
@@ -86,7 +84,7 @@ let load_from_xml_file filename =
         Array.map Vec2.(add { x = dx; y = dy }) default_shape
       ) else tmp_shape
     in
-    { name; id; adjacent; shape; color }
+    { name; id; adjacent; shape }
   in
   let read_continent attrs =
     drop ();
@@ -137,8 +135,7 @@ let save_to_xml_file map filename =
       let attrs =
         [ ("", "name"), t.name;
           ("", "id"), t.id;
-          ("", "adjacent"), String.concat "," t.adjacent;
-          ("", "color"), Utils.hex_of_color t.color ]
+          ("", "adjacent"), String.concat "," t.adjacent ]
       in
       output xml_map (`El_start (("", "territory"), attrs));
       let data =
