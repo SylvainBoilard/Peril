@@ -12,7 +12,7 @@
   <territory name="Central America" id="cam" adjacent="use,usw" color="#ffffff">
     -1.18, 0.208, -1.36, 0.256, -1.28, 0.1, -1.04, -0.036, -0.836, 0.092
   </territory>
-  <territory name="Eastern United States" id="use" adjacent="cam,cac,cae" color="#ffffff">
+  <territory name="Eastern United States" id="use" adjacent="cam,cac,cae,usw" color="#ffffff">
     -0.82, 0.404, -1.08, 0.444, -1.14, 0.22, -0.996, 0.224
   </territory>
   <territory name="Greenland" id="gl" adjacent="can,cac,cae,ice" color="#ffffff">
@@ -21,13 +21,13 @@
   <territory name="Northern Canada" id="can" adjacent="ak,gl,caw,cac" color="#ffffff">
     -1.004, 0.72, -1.244, 0.668, -1.348, 0.572, -0.956, 0.568, -0.756, 0.656
   </territory>
-  <territory name="Central Canada" id="cac" adjacent="gl,can,caw,cae,use" color="#ffffff">
+  <territory name="Central Canada" id="cac" adjacent="gl,can,caw,cae,use,usw" color="#ffffff">
     -0.98, 0.576, -1.036, 0.568, -1.1, 0.444, -0.896, 0.428, -0.884, 0.512
   </territory>
   <territory name="Eastern Canada" id="cae" adjacent="gl,cac,use" color="#ffffff">
     -0.676, 0.568, -0.792, 0.596, -0.896, 0.42, -0.78, 0.4, -0.652, 0.496
   </territory>
-  <territory name="Western United States" id="usw" adjacent="cam,caw,use," color="#ffffff">
+  <territory name="Western United States" id="usw" adjacent="cam,caw,cac,use" color="#ffffff">
     -1.084, 0.44, -1.304, 0.448, -1.396, 0.344, -1.36, 0.256, -1.124, 0.304
   </territory>
   <territory name="British Isles" id="br" adjacent="ice,sca,eun,euw" color="#0000ff">
@@ -36,7 +36,7 @@
   <territory name="Iceland" id="ice" adjacent="br,sca,gl" color="#4040ff">
     -0.24, 0.64, -0.31, 0.64, -0.31, 0.6, -0.24, 0.6
   </territory>
-  <territory name="Northern Europe" id="eun" adjacent="br,eun,eus,eue,euw" color="#0080ff">
+  <territory name="Northern Europe" id="eun" adjacent="br,eus,eue,euw,sca" color="#0080ff">
     0.06, 0.52, -0.112, 0.484, -0.06, 0.436, 0.088, 0.432
   </territory>
   <territory name="Scandinavia" id="sca" adjacent="br,ice,eun,eue" color="#8000ff">

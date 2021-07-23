@@ -10,7 +10,9 @@ let key_callback map window key _(*scancode*) action _(*modifiers*) =
   match key, action with
   | Escape, Press -> setWindowShouldClose window true
   | F3, Press -> edition_mode := not !edition_mode
-  | F5, Press when !edition_mode -> Map.save_to_xml_file map "maps/Earth.xml"
+  | F5, Press when !edition_mode ->
+     Map.validate map;
+     Map.save_to_xml_file map "maps/Earth.xml"
   | _ -> ()
 
 let mouse_button_callback (map : Map.t) window button pressed _(*modifiers*) =
@@ -91,6 +93,7 @@ let draw_background shader texture buffer =
 
 let () =
   let map = Map.load_from_xml_file "maps/Earth.xml" in
+  Map.validate map;
   GLFW.init ();
   GLFW.windowHint GLFW.ClientApi GLFW.OpenGLESApi;
   GLFW.windowHint GLFW.ContextVersionMajor 2;

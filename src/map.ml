@@ -160,6 +160,20 @@ let save_to_xml_file map filename =
   output xml_map (`El_end);
   close_out out_map
 
+let validate map =
+  Array.iter (fun t ->
+      if t.adjacent = [] then
+        Printf.eprintf "%s is not adjacent to any territory.\n%!" t.name
+      else
+        List.iter (fun a ->
+            match Array.find_opt (fun t' -> t'.id = a) map.territories with
+            | _ when t.id = a -> Printf.eprintf "%s is adjacent to itself.\n%!" t.name
+            | Some t' when List.exists ((=) t.id) t'.adjacent -> ()
+            | Some t' -> Printf.eprintf "%s is adjacent to %s but not the other way around.\n%!" t.name t'.name
+            | None -> Printf.eprintf "%s is adjacent to inexistant territory with id %s.\n%!" t.name a
+          ) t.adjacent
+    ) map.territories
+
 let find_territory_at_coords map coords =
   Array.find_opt (fun t ->
       Array.for_all_successive_pairs_loop (fun v1 v2 -> Vec2.side v1 v2 coords <= 0.0) t.shape
