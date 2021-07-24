@@ -114,15 +114,3 @@ let load_texture filename =
   GL.texImage2D GL.Texture2D 0 GL.RGBA image.width image.height 0 GL.RGBA GL.UnsignedByte;
   GL.texSubImage2D GL.Texture2D 0 0 0 GL.RGBA GL.UnsignedByte (Obj.magic pixels);
   texture
-
-let make_white_pixel_texture () =
-  let open Bigarray in
-  let pixels = Array3.create Int8_unsigned C_layout 1 1 4 in
-  Array3.fill pixels 255;
-  let texture = GL.genTexture () in
-  GL.bindTexture GL.Texture2D texture;
-  GL.texParameter GL.Texture2D GL.MinFilter GL.Nearest;
-  GL.texParameter GL.Texture2D GL.MagFilter GL.Nearest;
-  GL.texImage2D GL.Texture2D 0 GL.RGBA 1 1 0 GL.RGBA GL.UnsignedByte;
-  GL.texSubImage2D GL.Texture2D 0 0 0 GL.RGBA GL.UnsignedByte (Obj.magic pixels);
-  texture

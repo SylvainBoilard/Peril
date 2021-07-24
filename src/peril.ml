@@ -106,7 +106,7 @@ let () =
   GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
   let basic_shader = make_basic_shader () in
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
-  let territories_texture = make_white_pixel_texture () in
+  let territories_texture = load_texture "gfx/pixel.png" in
   let territories_buffer = GL.genBuffer () in
   let dot_texture = load_texture "gfx/dot.png" in
   let dot_buffer = GL.genBuffer () in
