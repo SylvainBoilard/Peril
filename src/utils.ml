@@ -29,6 +29,11 @@ let world_of_frame_coords c =
 let frame_of_world_coords c =
   Vec2.{ x = (c.x +. 1.6) *. 250.0; y = (c.y -. 1.0) *. -250.0 }
 
+let compute_shape_barycenter shape =
+  Vec2.mult
+    (Array.fold_left Vec2.add { x = 0.0; y = 0.0 } shape)
+    (1.0 /. float_of_int (Array.length shape))
+
 let color_of_hex str =
   Scanf.sscanf str "#%2x%2x%2x" (fun r g b ->
       { r = float_of_int r /. 255.0;
@@ -82,13 +87,33 @@ type basic_shader = {
     texture_location: GL.uniform_location;
   }
 
-let make_basic_shader () =
+let load_basic_shader () =
   let program = load_program "shaders" "basic" in
   let vertex_coords_location = GL.getAttribLocation program "VertexCoords" in
   let vertex_texture_coords_location = GL.getAttribLocation program "VertexTextureCoords" in
   let vertex_color_location = GL.getAttribLocation program "VertexColor" in
   let texture_location = GL.getUniformLocation program "Texture" in
-  { program; vertex_coords_location; vertex_texture_coords_location; vertex_color_location; texture_location }
+  { program; vertex_coords_location; vertex_texture_coords_location;
+    vertex_color_location; texture_location }
+
+type pulse_shader = {
+    program: GL.program;
+    vertex_coords_location: GL.attrib_location;
+    vertex_texture_coords_location: GL.attrib_location;
+    texture_location: GL.uniform_location;
+    color_location: GL.uniform_location;
+    time_location: GL.uniform_location;
+  }
+
+let load_pulse_shader () =
+  let program = load_program "shaders" "pulse" in
+  let vertex_coords_location = GL.getAttribLocation program "VertexCoords" in
+  let vertex_texture_coords_location = GL.getAttribLocation program "VertexTextureCoords" in
+  let texture_location = GL.getUniformLocation program "Texture" in
+  let color_location = GL.getUniformLocation program "Color" in
+  let time_location = GL.getUniformLocation program "Time" in
+  { program; vertex_coords_location; vertex_texture_coords_location;
+    texture_location; color_location; time_location }
 
 let load_texture filename =
   let open Bigarray in

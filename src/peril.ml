@@ -4,6 +4,7 @@ open Bigarray
 let edition_mode = ref false
 let selected_territory = ref (None : Map.territory option)
 let selected_poi = ref Map.NoPOI
+let pulse_time = ref 0.0
 
 let key_callback map window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
@@ -37,9 +38,10 @@ let mouse_button_callback (map : Map.t) window button pressed _(*modifiers*) =
               else t.shape.(i - 1)
             )
         in
+        let new_center = compute_shape_barycenter new_shape in
         Array.iteri (fun i t' ->
             if t' == t then (
-              map.territories.(i) <- { t with shape = new_shape };
+              map.territories.(i) <- { t with shape = new_shape; center = new_center };
               selected_territory := Some map.territories.(i);
               selected_poi := Corner (n + 1)
             )
@@ -77,7 +79,7 @@ let load_background filename =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
-let draw_background shader texture buffer =
+let draw_background (shader : basic_shader) texture buffer =
   GL.bindTexture GL.Texture2D texture;
   GL.bindBuffer GL.ArrayBuffer buffer;
   GL.vertexAttribPointer shader.vertex_coords_location 2 GL.Float false 32 0;
@@ -104,12 +106,15 @@ let () =
   GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback map)) |> ignore;
   GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
-  let basic_shader = make_basic_shader () in
+  let basic_shader = load_basic_shader () in
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
   let territories_texture = load_texture "gfx/pixel.png" in
   let territories_buffer = GL.genBuffer () in
   let dot_texture = load_texture "gfx/dot.png" in
   let dot_buffer = GL.genBuffer () in
+  let pulse_shader = load_pulse_shader () in
+  let pulse_texture = load_texture "gfx/pulse.png" in
+  let pulse_buffer = GL.genBuffer () in
   let text_ctx = Text.init () in
   let text_font = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let edition_mode_text = Text.make text_ctx text_font "Edition" in
@@ -199,6 +204,41 @@ let () =
        Text.draw text_ctx name_text Vec2.{ x; y = 470.0} 0.0 0.0 0.0;
        Text.destroy name_text
     | None, None -> ()
+    end;
+
+    begin match !selected_territory with
+    | Some territory ->
+       let coords = territory.center in
+       let buffer_data = [|
+           coords.x +. 0.128; coords.y +. 0.128;   1.0; 0.0;
+           coords.x -. 0.128; coords.y +. 0.128;   0.0; 0.0;
+           coords.x -. 0.128; coords.y -. 0.128;   0.0; 1.0;
+           coords.x +. 0.128; coords.y -. 0.128;   1.0; 1.0
+         |] |> Array1.of_array Float32 C_layout
+       in
+       GL.useProgram pulse_shader.program;
+       GL.activeTexture 0;
+       GL.bindTexture GL.Texture2D pulse_texture;
+       GL.uniform1i pulse_shader.texture_location 0;
+       GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
+       GL.uniform1f pulse_shader.time_location !pulse_time;
+
+       GL.enable GL.Blend;
+       GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
+       GL.bindBuffer GL.ArrayBuffer pulse_buffer;
+       GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+       GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
+       GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
+       GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
+       GL.enableVertexAttribArray pulse_shader.vertex_texture_coords_location;
+       GL.drawArrays GL.TriangleFan 0 4;
+       GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
+       GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
+       GL.disable GL.Blend;
+
+       pulse_time := !pulse_time +. 0.008;
+       if !pulse_time >= 1.0 then pulse_time := 0.0;
+    | None -> ()
     end;
 
     GLFW.swapBuffers window

@@ -5,6 +5,7 @@ type territory = {
     id: string;
     adjacent: string list;
     shape: Vec2.t array;
+    center: Vec2.t;
   }
 
 type continent = {
@@ -84,7 +85,8 @@ let load_from_xml_file filename =
         Array.map Vec2.(add { x = dx; y = dy }) default_shape
       ) else tmp_shape
     in
-    { name; id; adjacent; shape }
+    let center = compute_shape_barycenter shape in
+    { name; id; adjacent; shape; center }
   in
   let read_continent attrs =
     drop ();
