@@ -39,7 +39,7 @@ let default_shape = [|
 
 let load_from_xml_file filename =
   let open Xmlm in
-  let shape_offset = ref 0 in
+  let default_shape_offset = ref 0 in
   let in_map = open_in filename in
   let xml_map = make_input ~strip:true (`Channel in_map) in
   let background = ref "" in
@@ -50,7 +50,7 @@ let load_from_xml_file filename =
     | `El_end -> ()
     | `El_start _ -> drop (); drop ()
   in
-  let read_background _attrs =
+  let read_background _(*attrs*) =
     let rec aux acc = match input xml_map with
       | `Data filename -> aux filename
       | `Dtd _ -> aux acc
@@ -63,7 +63,7 @@ let load_from_xml_file filename =
     let rec aux acc = match input xml_map with
       | `Data data ->
          let rec pack acc = function
-           | [] | [ _ ] -> Array.of_list (List.rev acc)
+           | [] | [ _ ] -> Array.of_rev_list acc
            | x :: y :: tl ->
               let x, y = float_of_string x, float_of_string y in
               pack (Vec2.{ x; y } :: acc) tl
@@ -79,9 +79,9 @@ let load_from_xml_file filename =
     let shape =
       let tmp_shape = aux default_shape in
       if tmp_shape == default_shape then (
-        let dx = float_of_int (!shape_offset mod 5 - 2) *. 0.25 in
-        let dy = float_of_int (2 - !shape_offset / 5) *. 0.25 in
-        incr shape_offset;
+        let dx = float_of_int (!default_shape_offset mod 5 - 2) *. 0.25 in
+        let dy = float_of_int (2 - !default_shape_offset / 5) *. 0.25 in
+        incr default_shape_offset;
         Array.map Vec2.(add { x = dx; y = dy }) default_shape
       ) else tmp_shape
     in
@@ -120,8 +120,8 @@ let load_from_xml_file filename =
   global_scope ();
   close_in in_map;
   let background = !background in
-  let territories = Array.of_list (List.rev !territories) in
-  let continents = Array.of_list (List.rev !continents) in
+  let territories = Array.of_rev_list !territories in
+  let continents = Array.of_rev_list !continents in
   { background; territories; continents }
 
 let save_to_xml_file map filename =

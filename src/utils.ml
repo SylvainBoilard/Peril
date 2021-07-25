@@ -19,6 +19,17 @@ module Array =
         | i -> aux (i + 1)
       in
       aux 0
+
+    let of_rev_list = function
+      | [] -> [||]
+      | hd :: tl as l ->
+         let len = List.length l in
+         let a = make len hd in
+         let rec aux i = function
+           | [] -> a
+           | hd :: tl -> unsafe_set a i hd; aux (i - 1) tl
+         in
+         aux (len - 2) tl
   end
 
 type color = { r: float; g: float; b: float }

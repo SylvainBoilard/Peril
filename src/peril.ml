@@ -4,7 +4,7 @@ open Bigarray
 let edition_mode = ref false
 let selected_territory = ref (None : Map.territory option)
 let selected_poi = ref Map.NoPOI
-let pulse_time = ref 0.0
+let animation_time = ref 0.0
 
 let key_callback map window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
@@ -213,7 +213,7 @@ let () =
            coords.x +. 0.128; coords.y +. 0.128;   1.0; 0.0;
            coords.x -. 0.128; coords.y +. 0.128;   0.0; 0.0;
            coords.x -. 0.128; coords.y -. 0.128;   0.0; 1.0;
-           coords.x +. 0.128; coords.y -. 0.128;   1.0; 1.0
+           coords.x +. 0.128; coords.y -. 0.128;   1.0; 1.0;
          |] |> Array1.of_array Float32 C_layout
        in
        GL.useProgram pulse_shader.program;
@@ -221,7 +221,7 @@ let () =
        GL.bindTexture GL.Texture2D pulse_texture;
        GL.uniform1i pulse_shader.texture_location 0;
        GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
-       GL.uniform1f pulse_shader.time_location !pulse_time;
+       GL.uniform1f pulse_shader.time_location !animation_time;
 
        GL.enable GL.Blend;
        GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
@@ -236,8 +236,8 @@ let () =
        GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
        GL.disable GL.Blend;
 
-       pulse_time := !pulse_time +. 0.008;
-       if !pulse_time >= 1.0 then pulse_time := 0.0;
+       animation_time := !animation_time +. 0.008;
+       if !animation_time > 1.0 then animation_time := 0.0
     | None -> ()
     end;
 
