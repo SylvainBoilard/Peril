@@ -10,6 +10,8 @@ let sub v1 v2 = { x = v1.x -. v2.x; y = v1.y -. v2.y }
 
 let mult v f = { x = v.x *. f; y = v.y *. f }
 
+let mag v = hypot v.x v.y
+
 let sqr_mag v = v.x *. v.x +. v.y *. v.y
 
 let normalize v =

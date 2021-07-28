@@ -17,6 +17,7 @@ type continent = {
 type t = {
     background: string;
     territories: territory array;
+    territories_by_id: territory array;
     continents: continent array;
   }
 
@@ -121,8 +122,10 @@ let load_from_xml_file filename =
   close_in in_map;
   let background = !background in
   let territories = Array.of_rev_list !territories in
+  let territories_by_id = Array.copy territories in
+  Array.sort (fun t1 t2 -> String.compare t1.id t2.id) territories_by_id;
   let continents = Array.of_rev_list !continents in
-  { background; territories; continents }
+  { background; territories; territories_by_id; continents }
 
 let save_to_xml_file map filename =
   let open Xmlm in
@@ -178,7 +181,7 @@ let validate map =
         Printf.eprintf "%s is not adjacent to any territory.\n%!" t.name
       else
         List.iter (fun a ->
-            match Array.find_opt (fun t' -> t'.id = a) map.territories with
+            match Array.find_sorted_opt (fun t' -> String.compare a t'.id) map.territories_by_id with
             | _ when t.id = a -> Printf.eprintf "%s is adjacent to itself.\n%!" t.name
             | Some t' when List.exists ((=) t.id) t'.adjacent -> ()
             | Some t' -> Printf.eprintf "%s is adjacent to %s but not the other way around.\n%!" t.name t'.name

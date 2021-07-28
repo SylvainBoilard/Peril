@@ -115,6 +115,8 @@ let () =
   let pulse_shader = load_pulse_shader () in
   let pulse_texture = load_texture "gfx/pulse.png" in
   let pulse_buffer = GL.genBuffer () in
+  let dashed_texture = load_texture "gfx/dashed.png" in
+  let dashed_buffer = GL.genBuffer () in
   let text_ctx = Text.init () in
   let text_font = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let edition_mode_text = Text.make text_ctx text_font "Edition" in
@@ -129,7 +131,43 @@ let () =
 
     draw_background basic_shader background_texture background_buffer;
 
-    if !edition_mode then (
+    if not !edition_mode then (
+      match !selected_territory with
+      | Some territory ->
+         let adj_count = List.length territory.adjacent in
+         let center = territory.center in
+         let buffer_data = Array1.create Float32 C_layout (adj_count * 16) in
+         List.iteri (fun i id ->
+             let t =
+               Array.find_sorted (fun (t : Map.territory) ->
+                   String.compare id t.id
+                 ) map.territories_by_id
+             in
+             let sub = Array1.sub buffer_data (i * 16) 16 in
+             let target = t.center in
+             let dist = Vec2.(mag (sub center target)) in
+             [| center.x; center.y;   !animation_time;                0.0;   1.0; 1.0; 1.0; 1.0;
+                target.x; target.y;   !animation_time -. dist *. 8.0; 0.0;   1.0; 1.0; 1.0; 1.0;
+             |] |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
+           ) territory.adjacent;
+         GL.bindTexture GL.Texture2D dashed_texture;
+         GL.enable GL.Blend;
+         GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
+         GL.bindBuffer GL.ArrayBuffer dashed_buffer;
+         GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+         GL.vertexAttribPointer basic_shader.vertex_coords_location 2 GL.Float false 32 0;
+         GL.enableVertexAttribArray basic_shader.vertex_coords_location;
+         GL.vertexAttribPointer basic_shader.vertex_texture_coords_location 2 GL.Float false 32 8;
+         GL.enableVertexAttribArray basic_shader.vertex_texture_coords_location;
+         GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 32 16;
+         GL.enableVertexAttribArray basic_shader.vertex_color_location;
+         GL.drawArrays GL.Lines 0 (adj_count * 2);
+         GL.disableVertexAttribArray basic_shader.vertex_color_location;
+         GL.disableVertexAttribArray basic_shader.vertex_texture_coords_location;
+         GL.disableVertexAttribArray basic_shader.vertex_coords_location;
+         GL.disable GL.Blend
+      | None -> ()
+    ) else (
       let vertices_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let territories_data = Array1.create Float32 C_layout (vertices_count * 6) in
       Array.fold_left (fun i (t : Map.territory) ->
@@ -234,12 +272,12 @@ let () =
        GL.drawArrays GL.TriangleFan 0 4;
        GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
        GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
-       GL.disable GL.Blend;
-
-       animation_time := !animation_time +. 0.008;
-       if !animation_time > 1.0 then animation_time := 0.0
+       GL.disable GL.Blend
     | None -> ()
     end;
+
+    animation_time := !animation_time +. 0.008;
+    if !animation_time > 1.0 then animation_time := 0.0;
 
     GLFW.swapBuffers window
   done;

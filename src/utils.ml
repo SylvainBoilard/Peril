@@ -20,6 +20,32 @@ module Array =
       in
       aux 0
 
+    let find_sorted cmp a =
+      let rec aux min max =
+        if min = max then
+          raise Not_found
+        else
+          let mean = (min + max) / 2 in
+          match cmp a.(mean) with
+          | c when c < 0 -> aux min mean
+          | c when c > 0 -> aux (mean + 1) max
+          | _ -> a.(mean)
+      in
+      aux 0 (length a)
+
+    let find_sorted_opt cmp a =
+      let rec aux min max =
+        if min = max then
+          None
+        else
+          let mean = (min + max) / 2 in
+          match cmp a.(mean) with
+          | c when c < 0 -> aux min mean
+          | c when c > 0 -> aux (mean + 1) max
+          | _ -> Some a.(mean)
+      in
+      aux 0 (length a)
+
     let of_rev_list = function
       | [] -> [||]
       | hd :: tl as l ->
