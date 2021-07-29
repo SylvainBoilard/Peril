@@ -147,7 +147,7 @@ let () =
              let target = t.center in
              let dist = Vec2.(mag (sub center target)) in
              [| center.x; center.y;   !animation_time;                0.0;   1.0; 1.0; 1.0; 1.0;
-                target.x; target.y;   !animation_time -. dist *. 8.0; 0.0;   1.0; 1.0; 1.0; 1.0;
+                target.x; target.y;   !animation_time -. dist *. 8.0; 0.0;   0.5; 0.5; 0.5; 1.0;
              |] |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
            ) territory.adjacent;
          GL.bindTexture GL.Texture2D dashed_texture;
@@ -161,6 +161,7 @@ let () =
          GL.enableVertexAttribArray basic_shader.vertex_texture_coords_location;
          GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 32 16;
          GL.enableVertexAttribArray basic_shader.vertex_color_location;
+         GL.lineWidth 3.0;
          GL.drawArrays GL.Lines 0 (adj_count * 2);
          GL.disableVertexAttribArray basic_shader.vertex_color_location;
          GL.disableVertexAttribArray basic_shader.vertex_texture_coords_location;
@@ -189,6 +190,7 @@ let () =
       GL.enableVertexAttribArray basic_shader.vertex_coords_location;
       GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 24 8;
       GL.enableVertexAttribArray basic_shader.vertex_color_location;
+      GL.lineWidth 1.0;
       Array.fold_left (fun i (t : Map.territory) ->
           let len = Array.length t.shape in
           GL.drawArrays GL.LineLoop i len;
@@ -239,7 +241,7 @@ let () =
     | Some territory, _ | None, Some territory ->
        let name_text = Text.make text_ctx text_font territory.name in
        let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0} 0.0 0.0 0.0;
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } 0.0 0.0 0.0;
        Text.destroy name_text
     | None, None -> ()
     end;

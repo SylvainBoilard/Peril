@@ -460,6 +460,12 @@ CAMLprim value caml_glUniform4f(
     return Val_unit;
 }
 
+CAMLprim value caml_glLineWidth(value width)
+{
+    glLineWidth(Double_val(width));
+    return Val_unit;
+}
+
 CAMLprim value caml_glDrawArrays(value mode, value first, value count)
 {
     glDrawArrays(

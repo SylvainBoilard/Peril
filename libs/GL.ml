@@ -210,6 +210,7 @@ external uniform4f :
   location:uniform_location -> v1:float -> v2:float -> v3:float -> v4:float
   -> unit
   = "caml_glUniform4f" [@@noalloc]
+external lineWidth : width:float -> unit = "caml_glLineWidth" [@@noalloc]
 external drawArrays : mode:draw_mode -> first:int -> count:int -> unit
   = "caml_glDrawArrays" [@@noalloc]
 external drawElements :
