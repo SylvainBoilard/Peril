@@ -120,6 +120,21 @@ let load_background filename =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
+let load_pulse () =
+  let shader = load_pulse_shader () in
+  let texture = load_texture "gfx/pulse.png" in
+  let buffer_data = [|
+       0.128;  0.128;   1.0; 0.0;
+      -0.128;  0.128;   0.0; 0.0;
+      -0.128; -0.128;   0.0; 1.0;
+       0.128; -0.128;   1.0; 1.0;
+    |] |> Array1.of_array Float32 C_layout
+  in
+  let buffer = GL.genBuffer () in
+  GL.bindBuffer GL.ArrayBuffer buffer;
+  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
+  shader, texture, buffer
+
 let () =
   let map = Map.load_from_xml_file "maps/Earth.xml" in
   Map.validate map;
@@ -137,9 +152,7 @@ let () =
   let border_buffer = GL.genBuffer () in
   let dot_texture = load_texture "gfx/dot.png" in
   let dot_buffer = GL.genBuffer () in
-  let pulse_shader = load_pulse_shader () in
-  let pulse_texture = load_texture "gfx/pulse.png" in
-  let pulse_buffer = GL.genBuffer () in
+  let pulse_shader, pulse_texture, pulse_buffer = load_pulse () in
   let dashed_texture = load_texture "gfx/dashed.png" in
   let dashed_buffer = GL.genBuffer () in
   let dashed_elem_buffer = GL.genBuffer () in
@@ -235,23 +248,15 @@ let () =
     begin match !selected_territory with
     | Some territory ->
        let coords = territory.center in
-       let buffer_data = [|
-           coords.x +. 0.128; coords.y +. 0.128;   1.0; 0.0;
-           coords.x -. 0.128; coords.y +. 0.128;   0.0; 0.0;
-           coords.x -. 0.128; coords.y -. 0.128;   0.0; 1.0;
-           coords.x +. 0.128; coords.y -. 0.128;   1.0; 1.0;
-         |] |> Array1.of_array Float32 C_layout
-       in
        GL.useProgram pulse_shader.program;
        GL.activeTexture 0;
        GL.bindTexture GL.Texture2D pulse_texture;
+       GL.uniform2f pulse_shader.vertex_coords_offset_location coords.x coords.y;
        GL.uniform1i pulse_shader.texture_location 0;
        GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
        GL.uniform1f pulse_shader.time_location !animation_time;
-
        GL.enable GL.Blend;
        GL.bindBuffer GL.ArrayBuffer pulse_buffer;
-       GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
        GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
        GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
        GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
