@@ -92,6 +92,7 @@ let () =
   GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback map)) |> ignore;
   GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
+  GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
   let basic_shader = load_basic_shader () in
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
   let border_texture = load_texture "gfx/pixel.png" in
@@ -187,7 +188,6 @@ let () =
            GL.bindBuffer GL.ArrayBuffer dot_buffer;
            GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
            GL.enable GL.Blend;
-           GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
            draw_basic basic_shader dot_texture dot_buffer GL.TriangleFan 0 4;
            GL.disable GL.Blend
         | None -> ()
@@ -223,7 +223,6 @@ let () =
        GL.uniform1f pulse_shader.time_location !animation_time;
 
        GL.enable GL.Blend;
-       GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
        GL.bindBuffer GL.ArrayBuffer pulse_buffer;
        GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
        GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;

@@ -148,7 +148,6 @@ let destroy text =
 
 let draw ctx text (position : Vec2.t) r g b =
   GL.enable GL.Blend;
-  GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
   GL.useProgram ctx.program;
   GL.uniform2f ctx.view_offset_location (400.0 -. position.x) (position.y -. 250.0);
   GL.uniform3f ctx.color_location r g b;
