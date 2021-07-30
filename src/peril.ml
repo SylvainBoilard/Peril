@@ -120,6 +120,20 @@ let load_background filename =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
+let load_dot () =
+  let texture = load_texture "gfx/dot.png" in
+  let buffer_data = [|
+       0.016;  0.016;   1.0; 0.0;   1.0; 1.0; 1.0; 1.0;
+      -0.016;  0.016;   0.0; 0.0;   1.0; 1.0; 1.0; 1.0;
+      -0.016; -0.016;   0.0; 1.0;   1.0; 1.0; 1.0; 1.0;
+       0.016; -0.016;   1.0; 1.0;   1.0; 1.0; 1.0; 1.0;
+    |] |> Array1.of_array Float32 C_layout
+  in
+  let buffer = GL.genBuffer () in
+  GL.bindBuffer GL.ArrayBuffer buffer;
+  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
+  texture, buffer
+
 let load_pulse () =
   let shader = load_pulse_shader () in
   let texture = load_texture "gfx/pulse.png" in
@@ -150,8 +164,7 @@ let () =
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
   let border_texture = load_texture "gfx/pixel.png" in
   let border_buffer = GL.genBuffer () in
-  let dot_texture = load_texture "gfx/dot.png" in
-  let dot_buffer = GL.genBuffer () in
+  let dot_texture, dot_buffer = load_dot () in
   let pulse_shader, pulse_texture, pulse_buffer = load_pulse () in
   let dashed_texture = load_texture "gfx/dashed.png" in
   let dashed_buffer = GL.genBuffer () in
@@ -218,18 +231,11 @@ let () =
         in
         match dot_coords with
         | Some coords ->
-           let buffer_data = [|
-               coords.x +. 0.016; coords.y +. 0.016;   1.0; 0.0;   1.0; 1.0; 1.0; 1.0;
-               coords.x -. 0.016; coords.y +. 0.016;   0.0; 0.0;   1.0; 1.0; 1.0; 1.0;
-               coords.x -. 0.016; coords.y -. 0.016;   0.0; 1.0;   1.0; 1.0; 1.0; 1.0;
-               coords.x +. 0.016; coords.y -. 0.016;   1.0; 1.0;   1.0; 1.0; 1.0; 1.0;
-             |] |> Array1.of_array Float32 C_layout
-           in
-           GL.bindBuffer GL.ArrayBuffer dot_buffer;
-           GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+           GL.uniform2f basic_shader.vertex_coords_offset_location coords.x coords.y;
            GL.enable GL.Blend;
            draw_basic basic_shader dot_texture dot_buffer GL.TriangleFan 0 4;
-           GL.disable GL.Blend
+           GL.disable GL.Blend;
+           GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
         | None -> ()
       );
 
