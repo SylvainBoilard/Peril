@@ -79,20 +79,6 @@ let load_background filename =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
-let draw_background (shader : basic_shader) texture buffer =
-  GL.bindTexture GL.Texture2D texture;
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.vertexAttribPointer shader.vertex_coords_location 2 GL.Float false 32 0;
-  GL.enableVertexAttribArray shader.vertex_coords_location;
-  GL.vertexAttribPointer shader.vertex_texture_coords_location 2 GL.Float false 32 8;
-  GL.enableVertexAttribArray shader.vertex_texture_coords_location;
-  GL.vertexAttribPointer shader.vertex_color_location 4 GL.Float false 32 16;
-  GL.enableVertexAttribArray shader.vertex_color_location;
-  GL.drawArrays GL.TriangleFan 0 4;
-  GL.disableVertexAttribArray shader.vertex_color_location;
-  GL.disableVertexAttribArray shader.vertex_texture_coords_location;
-  GL.disableVertexAttribArray shader.vertex_coords_location
-
 let () =
   let map = Map.load_from_xml_file "maps/Earth.xml" in
   Map.validate map;
@@ -108,8 +94,8 @@ let () =
   GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
   let basic_shader = load_basic_shader () in
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
-  let territories_texture = load_texture "gfx/pixel.png" in
-  let territories_buffer = GL.genBuffer () in
+  let border_texture = load_texture "gfx/pixel.png" in
+  let border_buffer = GL.genBuffer () in
   let dot_texture = load_texture "gfx/dot.png" in
   let dot_buffer = GL.genBuffer () in
   let pulse_shader = load_pulse_shader () in
@@ -129,7 +115,7 @@ let () =
     GL.activeTexture 0;
     GL.uniform1i basic_shader.texture_location 0;
 
-    draw_background basic_shader background_texture background_buffer;
+    draw_basic basic_shader background_texture background_buffer GL.TriangleFan 0 4;
 
     if not !edition_mode then (
       match !selected_territory with
@@ -150,54 +136,37 @@ let () =
                 target.x; target.y;   !animation_time -. dist *. 8.0; 0.0;   0.5; 0.5; 0.5; 1.0;
              |] |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
            ) territory.adjacent;
-         GL.bindTexture GL.Texture2D dashed_texture;
-         GL.enable GL.Blend;
-         GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
          GL.bindBuffer GL.ArrayBuffer dashed_buffer;
          GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
-         GL.vertexAttribPointer basic_shader.vertex_coords_location 2 GL.Float false 32 0;
-         GL.enableVertexAttribArray basic_shader.vertex_coords_location;
-         GL.vertexAttribPointer basic_shader.vertex_texture_coords_location 2 GL.Float false 32 8;
-         GL.enableVertexAttribArray basic_shader.vertex_texture_coords_location;
-         GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 32 16;
-         GL.enableVertexAttribArray basic_shader.vertex_color_location;
+         GL.enable GL.Blend;
+         GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
          GL.lineWidth 3.0;
-         GL.drawArrays GL.Lines 0 (adj_count * 2);
-         GL.disableVertexAttribArray basic_shader.vertex_color_location;
-         GL.disableVertexAttribArray basic_shader.vertex_texture_coords_location;
-         GL.disableVertexAttribArray basic_shader.vertex_coords_location;
+         draw_basic basic_shader dashed_texture dashed_buffer GL.Lines 0 (adj_count * 2);
+         GL.lineWidth 1.0;
          GL.disable GL.Blend
       | None -> ()
     ) else (
-      let vertices_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
-      let territories_data = Array1.create Float32 C_layout (vertices_count * 6) in
-      Array.fold_left (fun i (t : Map.territory) ->
-          Array.fold_left (fun i (v : Vec2.t) ->
-              let offset = i * 6 in
-              territories_data.{offset} <- v.x;
-              territories_data.{offset + 1} <- v.y;
-              territories_data.{offset + 2} <- 0.0;
-              territories_data.{offset + 3} <- 0.0;
-              territories_data.{offset + 4} <- 0.0;
-              territories_data.{offset + 5} <- 1.0;
-              i + 1
-            ) i t.shape
-        ) 0 map.territories |> ignore;
-      GL.bindBuffer GL.ArrayBuffer territories_buffer;
-      GL.bufferData GL.ArrayBuffer territories_data GL.StreamDraw;
-      GL.bindTexture GL.Texture2D territories_texture;
-      GL.vertexAttribPointer basic_shader.vertex_coords_location 2 GL.Float false 24 0;
-      GL.enableVertexAttribArray basic_shader.vertex_coords_location;
-      GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 24 8;
-      GL.enableVertexAttribArray basic_shader.vertex_color_location;
-      GL.lineWidth 1.0;
-      Array.fold_left (fun i (t : Map.territory) ->
-          let len = Array.length t.shape in
-          GL.drawArrays GL.LineLoop i len;
-          i + len
-        ) 0 map.territories |> ignore;
-      GL.disableVertexAttribArray basic_shader.vertex_color_location;
-      GL.disableVertexAttribArray basic_shader.vertex_coords_location;
+      let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
+      let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
+      let _, border_draws =
+        Array.fold_left (fun (i, l) (t : Map.territory) ->
+            Array.fold_left (fun i (v : Vec2.t) ->
+                let offset = i * 8 in
+                border_data.{offset} <- v.x;
+                border_data.{offset + 1} <- v.y;
+                border_data.{offset + 2} <- 0.0;
+                border_data.{offset + 3} <- 0.0;
+                border_data.{offset + 4} <- 0.0;
+                border_data.{offset + 5} <- 0.0;
+                border_data.{offset + 6} <- 0.0;
+                border_data.{offset + 7} <- 1.0;
+                i + 1
+              ) i t.shape, (i, Array.length t.shape) :: l
+          ) (0, []) map.territories
+      in
+      GL.bindBuffer GL.ArrayBuffer border_buffer;
+      GL.bufferData GL.ArrayBuffer border_data GL.StreamDraw;
+      draw_basic_multi basic_shader border_texture border_buffer GL.LineLoop border_draws;
 
       if !selected_territory <> None && !selected_poi = NoPOI then (
         let selected_territory_shape = (Option.get !selected_territory).shape in
@@ -215,21 +184,11 @@ let () =
                coords.x +. 0.016; coords.y -. 0.016;   1.0; 1.0;   1.0; 1.0; 1.0; 1.0;
              |] |> Array1.of_array Float32 C_layout
            in
-           GL.enable GL.Blend;
-           GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
            GL.bindBuffer GL.ArrayBuffer dot_buffer;
            GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
-           GL.bindTexture GL.Texture2D dot_texture;
-           GL.vertexAttribPointer basic_shader.vertex_coords_location 2 GL.Float false 32 0;
-           GL.enableVertexAttribArray basic_shader.vertex_coords_location;
-           GL.vertexAttribPointer basic_shader.vertex_texture_coords_location 2 GL.Float false 32 8;
-           GL.enableVertexAttribArray basic_shader.vertex_texture_coords_location;
-           GL.vertexAttribPointer basic_shader.vertex_color_location 4 GL.Float false 32 16;
-           GL.enableVertexAttribArray basic_shader.vertex_color_location;
-           GL.drawArrays GL.TriangleFan 0 4;
-           GL.disableVertexAttribArray basic_shader.vertex_color_location;
-           GL.disableVertexAttribArray basic_shader.vertex_texture_coords_location;
-           GL.disableVertexAttribArray basic_shader.vertex_coords_location;
+           GL.enable GL.Blend;
+           GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
+           draw_basic basic_shader dot_texture dot_buffer GL.TriangleFan 0 4;
            GL.disable GL.Blend
         | None -> ()
       );

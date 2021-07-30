@@ -133,6 +133,41 @@ let load_basic_shader () =
   { program; vertex_coords_location; vertex_texture_coords_location;
     vertex_color_location; texture_location }
 
+let draw_basic_prepare shader texture buffer =
+  GL.bindTexture GL.Texture2D texture;
+  GL.bindBuffer GL.ArrayBuffer buffer;
+  GL.vertexAttribPointer shader.vertex_coords_location 2 GL.Float false 32 0;
+  GL.enableVertexAttribArray shader.vertex_coords_location;
+  GL.vertexAttribPointer shader.vertex_texture_coords_location 2 GL.Float false 32 8;
+  GL.enableVertexAttribArray shader.vertex_texture_coords_location;
+  GL.vertexAttribPointer shader.vertex_color_location 4 GL.Float false 32 16;
+  GL.enableVertexAttribArray shader.vertex_color_location
+
+let draw_basic_teardown shader =
+  GL.disableVertexAttribArray shader.vertex_color_location;
+  GL.disableVertexAttribArray shader.vertex_texture_coords_location;
+  GL.disableVertexAttribArray shader.vertex_coords_location
+
+let draw_basic shader texture buffer ?elem_buffer mode first count =
+  draw_basic_prepare shader texture buffer;
+  begin match elem_buffer with
+  | None -> GL.drawArrays mode first count
+  | Some elem_buffer ->
+     GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
+     GL.drawElements mode count GL.UnsignedShort first
+  end;
+  draw_basic_teardown shader
+
+let draw_basic_multi shader texture buffer ?elem_buffer mode list =
+  draw_basic_prepare shader texture buffer;
+  begin match elem_buffer with
+  | None -> List.iter (fun (first, count) -> GL.drawArrays mode first count) list
+  | Some elem_buffer ->
+     GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
+     List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort first) list
+  end;
+  draw_basic_teardown shader
+
 type pulse_shader = {
     program: GL.program;
     vertex_coords_location: GL.attrib_location;
