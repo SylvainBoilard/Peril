@@ -6,6 +6,41 @@ let selected_territory = ref (None : Map.territory option)
 let selected_poi = ref Map.NoPOI
 let animation_time = ref 0.0
 
+let update_dashed_buffers (map : Map.t) (territory : Map.territory) vertex_buffer elem_buffer =
+  let adj_count = List.length territory.adjacent in
+  let center = territory.center in
+  let vertex_data = Array1.create Float32 C_layout ((adj_count + 1) * 8) in
+  let sub_0 = Array1.sub vertex_data 0 8 in
+  [| center.x; center.y; 0.0; 0.0; 1.0; 1.0; 1.0; 1.0 |]
+  |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub_0;
+  List.iteri (fun i id ->
+      let t =
+        Array.find_sorted (fun (t : Map.territory) ->
+            String.compare id t.id
+          ) map.territories_by_id
+      in
+      let sub = Array1.sub vertex_data ((i + 1) * 8) 8 in
+      let target = t.center in
+      let dist = Vec2.(mag (sub center target)) in
+      [| target.x; target.y; dist *. -8.0; 0.0; 0.5; 0.5; 0.5; 1.0 |]
+      |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
+    ) territory.adjacent;
+  let elem_data = Array1.create Int16_unsigned C_layout (adj_count * 2) in
+  for i = 0 to adj_count - 1 do
+    let offset = i * 2 in
+    elem_data.{offset} <- 0;
+    elem_data.{offset + 1} <- i + 1
+  done;
+  GL.bindBuffer GL.ArrayBuffer vertex_buffer;
+  GL.bufferData GL.ArrayBuffer vertex_data GL.DynamicDraw;
+  GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
+  GL.bufferData GL.ElementArrayBuffer elem_data GL.DynamicDraw
+
+let update_selected_territory territory map dashed_vertex_buffer dashed_elem_buffer =
+  if Option.is_some territory then
+    update_dashed_buffers map (Option.get territory) dashed_vertex_buffer dashed_elem_buffer;
+  selected_territory := territory
+
 let key_callback map window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
   match key, action with
@@ -16,7 +51,9 @@ let key_callback map window key _(*scancode*) action _(*modifiers*) =
      Map.save_to_xml_file map "maps/Earth.xml"
   | _ -> ()
 
-let mouse_button_callback (map : Map.t) window button pressed _(*modifiers*) =
+let mouse_button_callback
+      (map : Map.t) dashed_vertex_buffer dashed_elems_buffer
+      window button pressed _(*modifiers*) =
   let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
   let cursor_coords = world_of_frame_coords cursor_pos in
   match button, pressed with
@@ -49,9 +86,13 @@ let mouse_button_callback (map : Map.t) window button pressed _(*modifiers*) =
         let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
         GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
         GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
-     |  NoPOI -> selected_territory := Map.find_territory_at_coords map cursor_coords
+     | NoPOI ->
+        let clicked_territory = Map.find_territory_at_coords map cursor_coords in
+        update_selected_territory clicked_territory map dashed_vertex_buffer dashed_elems_buffer
      end
-  | 0, true -> selected_territory := Map.find_territory_at_coords map cursor_coords
+  | 0, true ->
+     let clicked_territory = Map.find_territory_at_coords map cursor_coords in
+     update_selected_territory clicked_territory map dashed_vertex_buffer dashed_elems_buffer
   | 0, false ->
      selected_poi := NoPOI;
      GLFW.setInputMode window GLFW.Cursor GLFW.Normal
@@ -89,9 +130,6 @@ let () =
   GLFW.windowHint GLFW.Resizable false;
   let window = GLFW.createWindow 800 500 "Peril" () in
   GLFW.makeContextCurrent (Some window);
-  GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
-  GLFW.setMouseButtonCallback window (Some (mouse_button_callback map)) |> ignore;
-  GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
   GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
   let basic_shader = load_basic_shader () in
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
@@ -104,9 +142,13 @@ let () =
   let pulse_buffer = GL.genBuffer () in
   let dashed_texture = load_texture "gfx/dashed.png" in
   let dashed_buffer = GL.genBuffer () in
+  let dashed_elem_buffer = GL.genBuffer () in
   let text_ctx = Text.init () in
   let text_font = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let edition_mode_text = Text.make text_ctx text_font "Edition" in
+  GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
+  GLFW.setMouseButtonCallback window (Some (mouse_button_callback map dashed_buffer dashed_elem_buffer)) |> ignore;
+  GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
   while not (GLFW.windowShouldClose window) do
     GLFW.pollEvents ();
     let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
@@ -121,30 +163,15 @@ let () =
     if not !edition_mode then (
       match !selected_territory with
       | Some territory ->
-         let adj_count = List.length territory.adjacent in
-         let center = territory.center in
-         let buffer_data = Array1.create Float32 C_layout (adj_count * 16) in
-         List.iteri (fun i id ->
-             let t =
-               Array.find_sorted (fun (t : Map.territory) ->
-                   String.compare id t.id
-                 ) map.territories_by_id
-             in
-             let sub = Array1.sub buffer_data (i * 16) 16 in
-             let target = t.center in
-             let dist = Vec2.(mag (sub center target)) in
-             [| center.x; center.y;   !animation_time;                0.0;   1.0; 1.0; 1.0; 1.0;
-                target.x; target.y;   !animation_time -. dist *. 8.0; 0.0;   0.5; 0.5; 0.5; 1.0;
-             |] |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
-           ) territory.adjacent;
-         GL.bindBuffer GL.ArrayBuffer dashed_buffer;
-         GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+         GL.uniform2f basic_shader.texture_coords_offset_location !animation_time 0.0;
          GL.enable GL.Blend;
-         GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
          GL.lineWidth 3.0;
-         draw_basic basic_shader dashed_texture dashed_buffer GL.Lines 0 (adj_count * 2);
+         draw_basic
+           basic_shader dashed_texture dashed_buffer ~elem_buffer:dashed_elem_buffer
+           GL.Lines 0 (List.length territory.adjacent * 2);
          GL.lineWidth 1.0;
-         GL.disable GL.Blend
+         GL.disable GL.Blend;
+         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
       | None -> ()
     ) else (
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
