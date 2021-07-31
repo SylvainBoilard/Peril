@@ -171,7 +171,7 @@ let () =
   let dashed_elem_buffer = GL.genBuffer () in
   let text_ctx = Text.init () in
   let text_font = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
-  let edition_mode_text = Text.make text_ctx text_font "Edition" in
+  let edition_mode_text = Text.make text_ctx text_font "Edition" Regular in
   GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback map dashed_buffer dashed_elem_buffer)) |> ignore;
   GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
@@ -244,7 +244,7 @@ let () =
 
     begin match Map.find_territory_at_coords map cursor_coords, !selected_territory with
     | Some territory, _ | None, Some territory ->
-       let name_text = Text.make text_ctx text_font territory.name in
+       let name_text = Text.make text_ctx text_font territory.name Regular in
        let x = float_of_int (400 - name_text.width / 2) in
        Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } 0.0 0.0 0.0;
        Text.destroy name_text
