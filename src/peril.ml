@@ -239,14 +239,14 @@ let () =
         | None -> ()
       );
 
-      Text.draw text_ctx edition_mode_text { x = 10.0; y = 26.0 } 0.0 0.0 0.0
+      Text.draw text_ctx edition_mode_text { x = 10.0; y = 26.0 } Color.(of_name Black)
     );
 
     begin match Map.find_territory_at_coords map cursor_coords, !selected_territory with
     | Some territory, _ | None, Some territory ->
        let name_text = Text.make text_ctx text_font territory.name Regular in
        let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } 0.0 0.0 0.0;
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } Color.(of_name Black);
        Text.destroy name_text
     | None, None -> ()
     end;
