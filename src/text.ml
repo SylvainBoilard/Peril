@@ -21,10 +21,18 @@ type glyph_data = {
 
 type glyph_kind = Regular | Outline
 
+external int_of_glyph_kind : glyph_kind -> int = "%identity"
+
+let glyph_key uchar kind size =
+  assert (Sys.int_size > 31 || size < 512);
+  Uchar.to_int uchar
+  lor int_of_glyph_kind kind lsl 21
+  lor size lsl 22
+
 type font = {
     face : FreeType.Face.t;
     stroker : FreeType.Stroker.t;
-    glyphs : (Uchar.t * glyph_kind, glyph_data) Hashtbl.t;
+    glyphs : (int, glyph_data) Hashtbl.t;
   }
 
 type t = {
@@ -55,13 +63,13 @@ let init () =
 
 let load_font filename =
   let face = FreeType.Face.create filename 0 in
-  FreeType.Face.setCharSize face 0 (16 lsl 6) 72 72;
   let stroker = FreeType.Stroker.create () in
   FreeType.Stroker.(set stroker (1 lsl 6) Round Round 0);
   { face; stroker; glyphs = Hashtbl.create 128 }
 
-let load_glyph ctx font uchar kind =
+let load_glyph ctx font uchar kind size =
   let index = FreeType.Face.getCharIndex font.face (Uchar.to_int uchar) in
+  FreeType.Face.setCharSize font.face 0 (size lsl 6) 72 72;
   FreeType.Face.loadGlyph font.face index;
   let bitmap =
     let glyph = match kind with
@@ -73,7 +81,8 @@ let load_glyph ctx font uchar kind =
   let utf8_buf = Buffer.create 6 in
   Buffer.add_utf_8_uchar utf8_buf uchar;
   (*
-  Printf.eprintf "Loaded glyph #%d for char '%s' (code %d): %d (+%d), %d (-%d); +%d\n%!"
+  Printf.eprintf "Loaded %dpx %s #%d for char '%s' (code %d): %d (+%d), %d (-%d); +%d\n%!"
+    size (match kind with Regular -> "glyph" | Outline -> "outline")
     index (Buffer.contents utf8_buf) (Uchar.to_int uchar) bitmap.left bitmap.width
     bitmap.top bitmap.rows (bitmap.x_advance lsr 16);
    *)
@@ -91,7 +100,7 @@ let load_glyph ctx font uchar kind =
       tex_top = float_of_int ctx.glyph_cur_y /. tex_size_f;
       tex_bottom = float_of_int (ctx.glyph_cur_y + bitmap.rows) /. tex_size_f }
   in
-  Hashtbl.add font.glyphs (uchar, kind) glyph_data;
+  Hashtbl.add font.glyphs (glyph_key uchar kind size) glyph_data;
   GL.pixelStorei GL.UnpackAlignment 1;
   GL.bindTexture GL.Texture2D ctx.glyphs_texture;
   GL.texSubImage2D GL.Texture2D 0 ctx.glyph_cur_x ctx.glyph_cur_y GL.Alpha GL.UnsignedByte bitmap.data;
@@ -99,7 +108,7 @@ let load_glyph ctx font uchar kind =
   ctx.glyph_max_h <- max ctx.glyph_max_h bitmap.rows;
   glyph_data
 
-let make ctx font str glyph_kind =
+let make ctx font str glyph_kind size =
   let data_buffer = GL.genBuffer () in
   let indices_buffer = GL.genBuffer () in
   let len = Uutf.String.fold_utf_8 (fun i _ _ -> succ i) 0 str in
@@ -108,8 +117,8 @@ let make ctx font str glyph_kind =
   let fill_text_data () =
     let push_uchar x i c =
       let glyph_data =
-        try Hashtbl.find font.glyphs (c, glyph_kind)
-        with Not_found -> load_glyph ctx font c glyph_kind
+        try Hashtbl.find font.glyphs (glyph_key c glyph_kind size)
+        with Not_found -> load_glyph ctx font c glyph_kind size
       in
       let left = float_of_int (x + glyph_data.bitmap.left) in
       let right = float_of_int (x + glyph_data.bitmap.left + glyph_data.bitmap.width) in

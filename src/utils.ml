@@ -1,3 +1,5 @@
+let () = Random.self_init ()
+
 module Array =
   struct
     include Array
@@ -56,6 +58,14 @@ module Array =
            | hd :: tl -> unsafe_set a i hd; aux (i - 1) tl
          in
          aux (len - 2) tl
+
+    let shuffle a =
+      for i = length a - 1 downto 1 do
+        let j = Random.int (i + 1) in
+        let tmp = a.(i) in
+        a.(i) <- a.(j);
+        a.(j) <- tmp
+      done
   end
 
 let world_of_frame_coords c =

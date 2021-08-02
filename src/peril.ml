@@ -170,11 +170,18 @@ let () =
   let dashed_buffer = GL.genBuffer () in
   let dashed_elem_buffer = GL.genBuffer () in
   let text_ctx = Text.init () in
-  let text_font = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
-  let edition_mode_text = Text.make text_ctx text_font "Edition" Regular in
+  let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
+  let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
+  let edition_mode_text = Text.make text_ctx text_font_serif "Edition" Regular 16 in
   GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback map dashed_buffer dashed_elem_buffer)) |> ignore;
   GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
+  let armies_by_territory =
+    Array.init (Array.length map.territories) (fun i ->
+        (Obj.magic (i mod 6 + 2) : Color.name), if i < 12 then 2 else 1
+      )
+  in
+  Array.shuffle armies_by_territory;
   while not (GLFW.windowShouldClose window) do
     GLFW.pollEvents ();
     let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
@@ -244,7 +251,7 @@ let () =
 
     begin match Map.find_territory_at_coords map cursor_coords, !selected_territory with
     | Some territory, _ | None, Some territory ->
-       let name_text = Text.make text_ctx text_font territory.name Regular in
+       let name_text = Text.make text_ctx text_font_serif territory.name Regular 16 in
        let x = float_of_int (400 - name_text.width / 2) in
        Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } Color.(of_name Black);
        Text.destroy name_text
@@ -273,6 +280,21 @@ let () =
        GL.disable GL.Blend
     | None -> ()
     end;
+
+    if not !edition_mode then (
+      Array.iteri (fun i (t : Map.territory) ->
+          let color, armies = armies_by_territory.(i) in
+          let armies_str = string_of_int armies in
+          let text = Text.make text_ctx text_font_sans armies_str Regular 20 in
+          let outline = Text.make text_ctx text_font_sans armies_str Outline 20 in
+          let offset = Vec2.{ x = float_of_int (text.width / 2); y = -8.0 } in
+          let pos = Vec2.(sub (frame_of_world_coords t.center) offset) in
+          Text.draw text_ctx outline pos Color.(of_name Black);
+          Text.draw text_ctx text pos Color.(of_name color);
+          Text.destroy text;
+          Text.destroy outline
+        ) map.territories
+    );
 
     animation_time := !animation_time +. 0.008;
     if !animation_time > 1.0 then animation_time := 0.0;
