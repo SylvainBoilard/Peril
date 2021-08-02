@@ -4,7 +4,7 @@ open Bigarray
 let edition_mode = ref false
 let selected_territory = ref (None : Map.territory option)
 let selected_poi = ref Map.NoPOI
-let animation_time = ref 0.0
+let pulse_animation_time = ref 0.0
 
 let update_dashed_buffers (map : Map.t) (territory : Map.territory) vertex_buffer elem_buffer =
   let adj_count = List.length territory.adjacent in
@@ -162,7 +162,7 @@ let () =
   GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
   let basic_shader = load_basic_shader () in
   let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
-  let border_texture = load_texture "gfx/pixel.png" in
+  let white_texture = load_texture "gfx/pixel.png" in
   let border_buffer = GL.genBuffer () in
   let dot_texture, dot_buffer = load_dot () in
   let pulse_shader, pulse_texture, pulse_buffer = load_pulse () in
@@ -193,10 +193,46 @@ let () =
 
     draw_basic basic_shader background_texture background_buffer GL.TriangleFan 0 4;
 
+    begin match Map.find_territory_at_coords map cursor_coords, !selected_territory with
+    | Some territory, _ | None, Some territory ->
+       let name_text = Text.make text_ctx text_font_serif territory.name Regular 16 in
+       let x = float_of_int (400 - name_text.width / 2) in
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } Color.(of_name Black);
+       Text.destroy name_text
+    | None, None -> ()
+    end;
+
+    begin match !selected_territory with
+    | Some territory ->
+       let coords = territory.center in
+       GL.useProgram pulse_shader.program;
+       GL.activeTexture 0;
+       GL.bindTexture GL.Texture2D pulse_texture;
+       GL.uniform2f pulse_shader.vertex_coords_offset_location coords.x coords.y;
+       GL.uniform1i pulse_shader.texture_location 0;
+       GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
+       GL.uniform1f pulse_shader.time_location !pulse_animation_time;
+       GL.enable GL.Blend;
+       GL.bindBuffer GL.ArrayBuffer pulse_buffer;
+       GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
+       GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
+       GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
+       GL.enableVertexAttribArray pulse_shader.vertex_texture_coords_location;
+       GL.drawArrays GL.TriangleFan 0 4;
+       GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
+       GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
+       GL.disable GL.Blend
+    | None -> ()
+    end;
+
+    GL.useProgram basic_shader.program;
+    GL.activeTexture 0;
+    GL.uniform1i basic_shader.texture_location 0;
+
     if not !edition_mode then (
-      match !selected_territory with
+      begin match !selected_territory with
       | Some territory ->
-         GL.uniform2f basic_shader.texture_coords_offset_location !animation_time 0.0;
+         GL.uniform2f basic_shader.texture_coords_offset_location !pulse_animation_time 0.0;
          GL.enable GL.Blend;
          GL.lineWidth 3.0;
          draw_basic
@@ -206,6 +242,20 @@ let () =
          GL.disable GL.Blend;
          GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
       | None -> ()
+      end;
+
+      Array.iteri (fun i (t : Map.territory) ->
+          let color, armies = armies_by_territory.(i) in
+          let armies_str = string_of_int armies in
+          let text = Text.make text_ctx text_font_sans armies_str Regular 20 in
+          let outline = Text.make text_ctx text_font_sans armies_str Outline 20 in
+          let offset = Vec2.{ x = float_of_int (text.width / 2); y = -8.0 } in
+          let pos = Vec2.(sub (frame_of_world_coords t.center) offset) in
+          Text.draw text_ctx outline pos Color.(of_name Black);
+          Text.draw text_ctx text pos Color.(of_name color);
+          Text.destroy text;
+          Text.destroy outline
+        ) map.territories
     ) else (
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
@@ -227,7 +277,7 @@ let () =
       in
       GL.bindBuffer GL.ArrayBuffer border_buffer;
       GL.bufferData GL.ArrayBuffer border_data GL.StreamDraw;
-      draw_basic_multi basic_shader border_texture border_buffer GL.LineLoop border_draws;
+      draw_basic_multi basic_shader white_texture border_buffer GL.LineLoop border_draws;
 
       if !selected_territory <> None && !selected_poi = NoPOI then (
         let selected_territory_shape = (Option.get !selected_territory).shape in
@@ -249,55 +299,8 @@ let () =
       Text.draw text_ctx edition_mode_text { x = 10.0; y = 26.0 } Color.(of_name Black)
     );
 
-    begin match Map.find_territory_at_coords map cursor_coords, !selected_territory with
-    | Some territory, _ | None, Some territory ->
-       let name_text = Text.make text_ctx text_font_serif territory.name Regular 16 in
-       let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } Color.(of_name Black);
-       Text.destroy name_text
-    | None, None -> ()
-    end;
-
-    begin match !selected_territory with
-    | Some territory ->
-       let coords = territory.center in
-       GL.useProgram pulse_shader.program;
-       GL.activeTexture 0;
-       GL.bindTexture GL.Texture2D pulse_texture;
-       GL.uniform2f pulse_shader.vertex_coords_offset_location coords.x coords.y;
-       GL.uniform1i pulse_shader.texture_location 0;
-       GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
-       GL.uniform1f pulse_shader.time_location !animation_time;
-       GL.enable GL.Blend;
-       GL.bindBuffer GL.ArrayBuffer pulse_buffer;
-       GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
-       GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
-       GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
-       GL.enableVertexAttribArray pulse_shader.vertex_texture_coords_location;
-       GL.drawArrays GL.TriangleFan 0 4;
-       GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
-       GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
-       GL.disable GL.Blend
-    | None -> ()
-    end;
-
-    if not !edition_mode then (
-      Array.iteri (fun i (t : Map.territory) ->
-          let color, armies = armies_by_territory.(i) in
-          let armies_str = string_of_int armies in
-          let text = Text.make text_ctx text_font_sans armies_str Regular 20 in
-          let outline = Text.make text_ctx text_font_sans armies_str Outline 20 in
-          let offset = Vec2.{ x = float_of_int (text.width / 2); y = -8.0 } in
-          let pos = Vec2.(sub (frame_of_world_coords t.center) offset) in
-          Text.draw text_ctx outline pos Color.(of_name Black);
-          Text.draw text_ctx text pos Color.(of_name color);
-          Text.destroy text;
-          Text.destroy outline
-        ) map.territories
-    );
-
-    animation_time := !animation_time +. 0.008;
-    if !animation_time > 1.0 then animation_time := 0.0;
+    pulse_animation_time := !pulse_animation_time +. 0.008;
+    if !pulse_animation_time > 1.0 then pulse_animation_time := 0.0;
 
     GLFW.swapBuffers window
   done;
