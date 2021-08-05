@@ -23,9 +23,15 @@ type glyph_kind = Regular | Outline
 
 external int_of_glyph_kind : glyph_kind -> int = "%identity"
 
-let glyph_key uchar kind size =
-  assert (Sys.int_size > 31 || size < 512);
-  Uchar.to_int uchar
+let string_of_glyph_kind = function
+  | Regular -> "glyph"
+  | Outline -> "outline"
+
+let glyph_key index kind size =
+  assert (index < 1 lsl 21);
+  assert (int_of_glyph_kind kind < 1 lsl 1);
+  assert (size < 1 lsl (Sys.int_size - 22));
+  index
   lor int_of_glyph_kind kind lsl 21
   lor size lsl 22
 
@@ -67,9 +73,7 @@ let load_font filename =
   FreeType.Stroker.(set stroker (1 lsl 6) Round Round 0);
   { face; stroker; glyphs = Hashtbl.create 128 }
 
-let load_glyph ctx font uchar kind size =
-  let index = FreeType.Face.getCharIndex font.face (Uchar.to_int uchar) in
-  FreeType.Face.setCharSize font.face 0 (size lsl 6) 72 72;
+let load_glyph ctx font index kind size =
   FreeType.Face.loadGlyph font.face index;
   let bitmap =
     let glyph = match kind with
@@ -78,21 +82,22 @@ let load_glyph ctx font uchar kind size =
     in
     FreeType.Glyph.toBitmap glyph true
   in
-  let utf8_buf = Buffer.create 6 in
-  Buffer.add_utf_8_uchar utf8_buf uchar;
   (*
-  Printf.eprintf "Loaded %dpx %s #%d for char '%s' (code %d): %d (+%d), %d (-%d); +%d\n%!"
-    size (match kind with Regular -> "glyph" | Outline -> "outline")
-    index (Buffer.contents utf8_buf) (Uchar.to_int uchar) bitmap.left bitmap.width
-    bitmap.top bitmap.rows (bitmap.x_advance lsr 16);
+  Printf.eprintf "Loaded %dpx %s #%d: %d (+%d), %d (-%d); +%d\n%!"
+    size (string_of_glyph_kind kind) index
+    bitmap.left bitmap.width bitmap.top bitmap.rows (bitmap.x_advance asr 16);
    *)
   if bitmap.x_advance land 0xffff <> 0 then
-    Printf.eprintf "\027[1;33mGlyph has supplementary fractional advance of 0x0.%04x.\027[0m\n%!" (bitmap.x_advance land 0xffff);
-  if ctx.glyph_cur_x + bitmap.width >= tex_size then (
+    Printf.eprintf "\027[1;33m%dpx glyph #%d has supplementary fractional advance of 0x0.%04x.\027[0m\n%!"
+      size index (bitmap.x_advance land 0xffff);
+  if ctx.glyph_cur_x + bitmap.width > tex_size then (
     ctx.glyph_cur_x <- 0;
     ctx.glyph_cur_y <- ctx.glyph_cur_y + ctx.glyph_max_h;
-    ctx.glyph_max_h <- 0
+    ctx.glyph_max_h <- 0;
   );
+  if ctx.glyph_cur_y + bitmap.rows > tex_size then
+    Printf.eprintf "\027[1;31mNo room left for %dpx %s #%d in glyphs texture!\027[0m\n%!"
+      size (string_of_glyph_kind kind) index;
   let glyph_data =
     { bitmap;
       tex_left = float_of_int ctx.glyph_cur_x /. tex_size_f;
@@ -100,7 +105,7 @@ let load_glyph ctx font uchar kind size =
       tex_top = float_of_int ctx.glyph_cur_y /. tex_size_f;
       tex_bottom = float_of_int (ctx.glyph_cur_y + bitmap.rows) /. tex_size_f }
   in
-  Hashtbl.add font.glyphs (glyph_key uchar kind size) glyph_data;
+  Hashtbl.add font.glyphs (glyph_key index kind size) glyph_data;
   GL.pixelStorei GL.UnpackAlignment 1;
   GL.bindTexture GL.Texture2D ctx.glyphs_texture;
   GL.texSubImage2D GL.Texture2D 0 ctx.glyph_cur_x ctx.glyph_cur_y GL.Alpha GL.UnsignedByte bitmap.data;
@@ -109,54 +114,61 @@ let load_glyph ctx font uchar kind size =
   glyph_data
 
 let make ctx font str glyph_kind size =
+  FreeType.Face.setCharSize font.face 0 (size lsl 6) 72 72;
   let data_buffer = GL.genBuffer () in
   let indices_buffer = GL.genBuffer () in
   let len = Uutf.String.fold_utf_8 (fun i _ _ -> succ i) 0 str in
   let text_data = Bigarray.(Array1.create Float32 C_layout (len * 16)) in
   let indices = Bigarray.(Array1.create Int16_unsigned C_layout (len * 6)) in
-  let fill_text_data () =
-    let push_uchar x i c =
-      let glyph_data =
-        try Hashtbl.find font.glyphs (glyph_key c glyph_kind size)
-        with Not_found -> load_glyph ctx font c glyph_kind size
-      in
-      let left = float_of_int (x + glyph_data.bitmap.left) in
-      let right = float_of_int (x + glyph_data.bitmap.left + glyph_data.bitmap.width) in
-      let top = float_of_int glyph_data.bitmap.top in
-      let bottom = float_of_int (glyph_data.bitmap.top - glyph_data.bitmap.rows) in
-      let j = i * 16 in
-      text_data.{j} <- right;
-      text_data.{j + 1} <- bottom;
-      text_data.{j + 2} <- glyph_data.tex_right;
-      text_data.{j + 3} <- glyph_data.tex_bottom;
-      text_data.{j + 4} <- right;
-      text_data.{j + 5} <- top;
-      text_data.{j + 6} <- glyph_data.tex_right;
-      text_data.{j + 7} <- glyph_data.tex_top;
-      text_data.{j + 8} <- left;
-      text_data.{j + 9} <- bottom;
-      text_data.{j + 10} <- glyph_data.tex_left;
-      text_data.{j + 11} <- glyph_data.tex_bottom;
-      text_data.{j + 12} <- left;
-      text_data.{j + 13} <- top;
-      text_data.{j + 14} <- glyph_data.tex_left;
-      text_data.{j + 15} <- glyph_data.tex_top;
-      let k = i * 6 in
-      let l = i * 4 in
-      indices.{k} <- l;
-      indices.{k + 1} <- l + 1;
-      indices.{k + 2} <- l + 2;
-      indices.{k + 3} <- l + 2;
-      indices.{k + 4} <- l + 1;
-      indices.{k + 5} <- l + 3;
-      x + glyph_data.bitmap.x_advance lsr 16
+  let push_glyph x i p c =
+    let glyph_data =
+      try Hashtbl.find font.glyphs (glyph_key c glyph_kind size)
+      with Not_found -> load_glyph ctx font c glyph_kind size
     in
-    Uutf.String.fold_utf_8 (fun (x, i) _ -> function
-        | `Uchar u -> push_uchar x i u, succ i
-        | `Malformed _ -> push_uchar x i Uchar.rep, succ i
-      ) (0, 0) str |> fst
+    let kerning = FreeType.Face.getKerning font.face p c Default asr 6 in
+    let left = float_of_int (x + kerning + glyph_data.bitmap.left) in
+    let right = float_of_int (x + kerning + glyph_data.bitmap.left + glyph_data.bitmap.width) in
+    let top = float_of_int glyph_data.bitmap.top in
+    let bottom = float_of_int (glyph_data.bitmap.top - glyph_data.bitmap.rows) in
+    let j = i * 16 in
+    text_data.{j} <- right;
+    text_data.{j + 1} <- bottom;
+    text_data.{j + 2} <- glyph_data.tex_right;
+    text_data.{j + 3} <- glyph_data.tex_bottom;
+    text_data.{j + 4} <- right;
+    text_data.{j + 5} <- top;
+    text_data.{j + 6} <- glyph_data.tex_right;
+    text_data.{j + 7} <- glyph_data.tex_top;
+    text_data.{j + 8} <- left;
+    text_data.{j + 9} <- bottom;
+    text_data.{j + 10} <- glyph_data.tex_left;
+    text_data.{j + 11} <- glyph_data.tex_bottom;
+    text_data.{j + 12} <- left;
+    text_data.{j + 13} <- top;
+    text_data.{j + 14} <- glyph_data.tex_left;
+    text_data.{j + 15} <- glyph_data.tex_top;
+    let k = i * 6 in
+    let l = i * 4 in
+    indices.{k} <- l;
+    indices.{k + 1} <- l + 1;
+    indices.{k + 2} <- l + 2;
+    indices.{k + 3} <- l + 2;
+    indices.{k + 4} <- l + 1;
+    indices.{k + 5} <- l + 3;
+    x + kerning + glyph_data.bitmap.x_advance asr 16
   in
-  let width = fill_text_data () in
+  let decoder = Uutf.decoder (`String str) in
+  let rec loop x i p = match Uutf.decode decoder with
+    | `Await -> assert false
+    | `End -> x
+    | `Malformed _ ->
+       let c = FreeType.Face.getCharIndex font.face Uchar.(to_int rep) in
+       loop (push_glyph x i p c) (i + 1) c
+    | `Uchar u ->
+       let c = FreeType.Face.getCharIndex font.face (Uchar.to_int u) in
+       loop (push_glyph x i p c) (i + 1) c
+  in
+  let width = loop 0 0 0 in
   GL.bindBuffer GL.ArrayBuffer data_buffer;
   GL.bufferData GL.ArrayBuffer text_data GL.StaticDraw;
   GL.bindBuffer GL.ElementArrayBuffer indices_buffer;

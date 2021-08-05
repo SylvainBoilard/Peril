@@ -15,6 +15,12 @@
 
 static FT_Library ft_library;
 
+static const int ml_to_ft_kerning_mode[] = {
+    FT_KERNING_DEFAULT,
+    FT_KERNING_UNFITTED,
+    FT_KERNING_UNSCALED
+};
+
 static const int ml_to_ft_line_join[] = {
     FT_STROKER_LINEJOIN_ROUND,
     FT_STROKER_LINEJOIN_BEVEL,
@@ -70,6 +76,19 @@ CAMLprim value caml_FT_Load_Glyph(value ml_face, value index)
     if (FT_Load_Glyph(face, Int_val(index), FT_LOAD_DEFAULT) != 0)
         caml_failwith("FreeType.Face.loadGlyph: failure.");
     return Val_unit;
+}
+
+CAMLprim value caml_FT_Get_Kerning(
+    value face, value left, value right, value mode)
+{
+    FT_Vector kerning;
+    int ret = FT_Get_Kerning(
+        Cptr_val(FT_Face, face), Int_val(left), Int_val(right),
+        ml_to_ft_kerning_mode[Int_val(mode)], &kerning);
+
+    if (ret != 0)
+        caml_failwith("FreeType.Face.getKerning: failure.");
+    return Val_int(kerning.x);
 }
 
 CAMLprim value caml_FT_Stroker_New(CAMLvoid)

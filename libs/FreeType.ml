@@ -6,6 +6,8 @@ module Face =
   struct
     type t [@@immediate]
 
+    type kerning_mode = Default | Unfitted | Unscaled
+
     external create : filename:string -> face_index:int -> t
       = "caml_FT_New_Face"
     external setCharSize :
@@ -14,6 +16,9 @@ module Face =
     external getCharIndex : face:t -> code:int -> int
       = "caml_FT_Get_Char_Index" [@@noalloc]
     external loadGlyph : face:t -> index:int -> unit = "caml_FT_Load_Glyph"
+    external getKerning :
+      face:t -> left:int -> right:int -> mode:kerning_mode -> int
+      = "caml_FT_Get_Kerning"
   end
 
 module Stroker =
