@@ -38,9 +38,12 @@ let update_dashed_buffers (map : Map.t) (territory : Map.territory) vertex_buffe
   GL.bufferData GL.ElementArrayBuffer elem_data GL.DynamicDraw
 
 let update_selected_territory territory map dashed_vertex_buffer dashed_elem_buffer =
-  if Option.is_some territory then
-    update_dashed_buffers map (Option.get territory) dashed_vertex_buffer dashed_elem_buffer;
-  selected_territory := territory
+  match territory, !selected_territory with
+  | Some t, Some st when t == st -> ()
+  | None, _ -> selected_territory := None
+  | Some t, _ ->
+     update_dashed_buffers map t dashed_vertex_buffer dashed_elem_buffer;
+     selected_territory := territory
 
 let key_callback map window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
