@@ -15,9 +15,10 @@ let update_dashed_buffers (map : Map.t) (territory : Map.territory) vertex_buffe
   |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub_0;
   List.iteri (fun i id ->
       let t =
-        Array.find_sorted (fun (t : Map.territory) ->
-            String.compare id t.id
+        Array.find_sorted (fun i ->
+            String.compare id map.territories.(i).id
           ) map.territories_by_id
+        |> Array.get map.territories
       in
       let sub = Array1.sub vertex_data ((i + 1) * 8) 8 in
       let target = t.center in
