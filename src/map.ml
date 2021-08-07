@@ -21,6 +21,22 @@ type t = {
     continents: continent array;
   }
 
+let find_territory_offset map id =
+  Array.find_sorted (fun i ->
+      String.compare id map.territories.(i).id
+    ) map.territories_by_id
+
+let find_territory_offset_opt map id =
+  Array.find_sorted_opt (fun i ->
+      String.compare id map.territories.(i).id
+    ) map.territories_by_id
+
+let find_territory map id =
+  map.territories.(find_territory_offset map id)
+
+let find_territory_opt map id =
+  Option.map (Array.get map.territories) (find_territory_offset_opt map id)
+
 let rec attr_assoc name = function
   | [] -> raise Not_found
   | ((_, hd_name), hd_value) :: _ when hd_name = name -> hd_value
@@ -182,14 +198,13 @@ let validate map =
       if t.adjacent = [] then
         Printf.eprintf "%s is not adjacent to any territory.\n%!" t.name
       else
-        List.iter (fun a ->
-            match Array.find_sorted_opt (fun i -> String.compare a map.territories.(i).id) map.territories_by_id with
-            | _ when t.id = a -> Printf.eprintf "%s is adjacent to itself.\n%!" t.name
-            | Some i ->
-               let t' = map.territories.(i) in
-               if not (List.exists ((=) t.id) t'.adjacent) then
-                 Printf.eprintf "%s is adjacent to %s but not the other way around.\n%!" t.name t'.name
-            | None -> Printf.eprintf "%s is adjacent to inexistant territory with id %s.\n%!" t.name a
+        List.iter (fun id' ->
+            match find_territory_opt map id' with
+            | _ when t.id = id' -> Printf.eprintf "%s is adjacent to itself.\n%!" t.name
+            | Some t' when not (List.exists ((=) t.id) t'.adjacent) ->
+               Printf.eprintf "%s is adjacent to %s but not the other way around.\n%!" t.name t'.name
+            | None -> Printf.eprintf "%s is adjacent to inexistant territory with id %s.\n%!" t.name id'
+            | _ -> ()
           ) t.adjacent
     ) map.territories
 

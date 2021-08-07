@@ -14,12 +14,7 @@ let update_dashed_buffers (map : Map.t) (territory : Map.territory) vertex_buffe
   [| center.x; center.y; 0.0; 0.0; 1.0; 1.0; 1.0; 1.0 |]
   |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub_0;
   List.iteri (fun i id ->
-      let t =
-        Array.find_sorted (fun i ->
-            String.compare id map.territories.(i).id
-          ) map.territories_by_id
-        |> Array.get map.territories
-      in
+      let t = Map.find_territory map id in
       let sub = Array1.sub vertex_data ((i + 1) * 8) 8 in
       let target = t.center in
       let dist = Vec2.(mag (sub center target)) in
@@ -80,13 +75,10 @@ let mouse_button_callback
             )
         in
         let new_center = compute_shape_barycenter new_shape in
-        Array.iteri (fun i t' ->
-            if t' == t then (
-              map.territories.(i) <- { t with shape = new_shape; center = new_center };
-              selected_territory := Some map.territories.(i);
-              selected_poi := Corner (n + 1)
-            )
-          ) map.territories;
+        let i = Map.find_territory_offset map t.id in
+        map.territories.(i) <- { t with shape = new_shape; center = new_center };
+        selected_territory := Some map.territories.(i);
+        selected_poi := Corner (n + 1);
         let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
         GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
         GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
