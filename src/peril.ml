@@ -51,45 +51,72 @@ let key_callback map window key _(*scancode*) action _(*modifiers*) =
   | _ -> ()
 
 let mouse_button_callback
-      (map : Map.t) dashed_vertex_buffer dashed_elems_buffer
+      (game : Game.t) dashed_vertex_buffer dashed_elems_buffer
       window button pressed _(*modifiers*) =
   let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
   let cursor_coords = world_of_frame_coords cursor_pos in
   match button, pressed with
-  | 0, true when !edition_mode && Option.is_some !selected_territory ->
-     let t = Option.get !selected_territory in
-     selected_poi := Map.find_poi_of_shape_at_coords t.shape cursor_coords;
-     begin match !selected_poi with
-     | Corner n ->
-        let cursor_pos = frame_of_world_coords t.shape.(n) in
-        GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
-        GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
-     | Edge (n, m) ->
-        let new_shape =
-          Array.init (Array.length t.shape + 1) (fun i ->
-              if i <= n
-              then t.shape.(i)
-              else if i = n + 1
-              then Vec2.lerp t.shape.(n) t.shape.(m) 0.5
-              else t.shape.(i - 1)
-            )
-        in
-        let new_center = compute_shape_barycenter new_shape in
-        let i = Map.find_territory_offset map t.id in
-        map.territories.(i) <- { t with shape = new_shape; center = new_center };
-        selected_territory := Some map.territories.(i);
-        selected_poi := Corner (n + 1);
-        let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
-        GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
-        GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
-     | NoPOI ->
-        let clicked_territory = Map.find_territory_at_coords map cursor_coords in
-        update_selected_territory clicked_territory map dashed_vertex_buffer dashed_elems_buffer
+  | 0, true when !edition_mode ->
+     begin match !selected_territory with
+     | None ->
+        let clicked_territory = Map.find_territory_at_coords game.map cursor_coords in
+        update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer
+     | Some t ->
+        selected_poi := Map.find_poi_of_shape_at_coords t.shape cursor_coords;
+        begin match !selected_poi with
+        | Corner n ->
+           let cursor_pos = frame_of_world_coords t.shape.(n) in
+           GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
+           GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
+        | Edge (n, m) ->
+           let new_shape =
+             Array.init (Array.length t.shape + 1) (fun i ->
+                 if i <= n
+                 then t.shape.(i)
+                 else if i = n + 1
+                 then Vec2.lerp t.shape.(n) t.shape.(m) 0.5
+                 else t.shape.(i - 1)
+               )
+           in
+           let new_center = compute_shape_barycenter new_shape in
+           let i = Map.find_territory_offset game.map t.id in
+           game.map.territories.(i) <- { t with shape = new_shape; center = new_center };
+           selected_territory := Some game.map.territories.(i);
+           selected_poi := Corner (n + 1);
+           let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
+           GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
+           GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
+        | NoPOI ->
+           let clicked_territory = Map.find_territory_at_coords game.map cursor_coords in
+           update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer
+        end
      end
-  | 0, true ->
-     let clicked_territory = Map.find_territory_at_coords map cursor_coords in
-     update_selected_territory clicked_territory map dashed_vertex_buffer dashed_elems_buffer
-  | 0, false ->
+  | 0, true when game.current_phase = Claim ->
+     begin match Map.find_territory_at_coords game.map cursor_coords with
+     | Some t ->
+        let i = Map.find_territory_offset game.map t.id in
+        if game.armies.(i) = 0 then (
+          game.armies.(i) <- 1;
+          game.owner.(i) <- game.current_player;
+          game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
+          if Array.for_all ((<>) 0) game.armies then
+            game.current_phase <- Deploy
+        )
+     | None -> ()
+     end
+  | 0, true when game.current_phase = Deploy ->
+     begin match Map.find_territory_at_coords game.map cursor_coords with
+     | Some t ->
+        let i = Map.find_territory_offset game.map t.id in
+        if game.owner.(i) = game.current_player then (
+          game.armies.(i) <- game.armies.(i) + 1;
+          game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
+          if Array.fold_left (+) 0 game.armies = 105 then
+            game.current_phase <- Reinforce
+        )
+     | None -> ()
+     end
+  | 0, false when !selected_poi <> NoPOI ->
      selected_poi := NoPOI;
      GLFW.setInputMode window GLFW.Cursor GLFW.Normal
   | _ -> ()
@@ -168,16 +195,14 @@ let () =
   let text_ctx = Text.init () in
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
-  let edition_mode_text = Text.make text_ctx text_font_serif "Edition" Regular 16 in
-  GLFW.setKeyCallback window (Some (key_callback map)) |> ignore;
-  GLFW.setMouseButtonCallback window (Some (mouse_button_callback map dashed_buffer dashed_elem_buffer)) |> ignore;
-  GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
-  let armies_by_territory =
-    Array.init (Array.length map.territories) (fun i ->
-        (Obj.magic (i mod 6 + 2) : Color.name), if i < 12 then 2 else 1
-      )
+  let game =
+    { Game.players = [ Red; Green; Blue ]; current_player = Red; current_phase = Claim; map;
+      owner = Array.make (Array.length map.territories) Color.White;
+      armies = Array.make (Array.length map.territories) 0 }
   in
-  Array.shuffle armies_by_territory;
+  GLFW.setKeyCallback window (Some (key_callback game.map)) |> ignore;
+  GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
+  GLFW.setCursorPosCallback window (Some cursor_pos_callback) |> ignore;
   while not (GLFW.windowShouldClose window) do
     GLFW.pollEvents ();
     let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
@@ -193,7 +218,7 @@ let () =
     | Some territory, _ | None, Some territory ->
        let name_text = Text.make text_ctx text_font_serif territory.name Regular 16 in
        let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } Color.(of_name Black);
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.of_name Black);
        Text.destroy name_text
     | None, None -> ()
     end;
@@ -241,14 +266,13 @@ let () =
       end;
 
       Array.iteri (fun i (t : Map.territory) ->
-          let color, armies = armies_by_territory.(i) in
-          let armies_str = string_of_int armies in
+          let armies_str = string_of_int game.armies.(i) in
           let text = Text.make text_ctx text_font_sans armies_str Regular 20 in
           let outline = Text.make text_ctx text_font_sans armies_str Outline 20 in
           let offset = Vec2.{ x = float_of_int (text.width / 2); y = -8.0 } in
           let pos = Vec2.(sub (frame_of_world_coords t.center) offset) in
-          Text.draw text_ctx outline pos Color.(of_name Black);
-          Text.draw text_ctx text pos Color.(of_name color);
+          Text.draw text_ctx outline pos (Color.of_name Black);
+          Text.draw text_ctx text pos (Color.of_name game.owner.(i));
           Text.destroy text;
           Text.destroy outline
         ) map.territories
@@ -290,16 +314,35 @@ let () =
            GL.disable GL.Blend;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
         | None -> ()
-      );
-
-      Text.draw text_ctx edition_mode_text { x = 10.0; y = 26.0 } Color.(of_name Black)
+      )
     );
+
+    let status_text =
+      match game.current_phase with
+      | _ when !edition_mode -> Text.make text_ctx text_font_serif "Edition" Regular 16
+      | Claim ->
+         let str =
+           Printf.sprintf "%s player, claim an empty territory"
+             (Color.string_of_name game.current_player)
+           |> String.capitalize_ascii
+         in
+         Text.make text_ctx text_font_serif str Regular 16
+      | Deploy ->
+         let str =
+           Printf.sprintf "%s player, deploy an army on one of your territories (you have %d remaining)"
+             (Color.string_of_name game.current_player) ((105 - Array.fold_left (+) (-2) game.armies) / 3)
+           |> String.capitalize_ascii
+         in
+         Text.make text_ctx text_font_serif str Regular 16
+      | _ -> Text.make text_ctx text_font_serif "<TODO>" Regular 16
+    in
+    Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.of_name Black);
+    Text.destroy status_text;
 
     pulse_animation_time := !pulse_animation_time +. 0.008;
     if !pulse_animation_time > 1.0 then pulse_animation_time := 0.0;
 
     GLFW.swapBuffers window
   done;
-  Text.destroy edition_mode_text;
   GLFW.destroyWindow window;
   GLFW.terminate ()

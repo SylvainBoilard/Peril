@@ -1,5 +1,19 @@
 let () = Random.self_init ()
 
+module List =
+  struct
+    include List
+
+    let find_next_loop f l =
+      let rec aux = function
+        | hd :: next :: _ when f hd -> next
+        | hd :: [] when f hd -> List.hd l
+        | _ :: tl -> aux tl
+        | [] -> raise Not_found
+      in
+      aux l
+  end
+
 module Array =
   struct
     include Array

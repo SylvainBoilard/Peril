@@ -10,6 +10,16 @@ type name =
   | Yellow
   | Purple
 
+let string_of_name = function
+  | Black -> "black"
+  | White -> "white"
+  | Red -> "red"
+  | Green -> "green"
+  | Blue -> "blue"
+  | Orange -> "orange"
+  | Yellow -> "yellow"
+  | Purple -> "purple"
+
 let of_name = function
   | Black -> { r = 0.0; g = 0.0; b = 0.0; a = 1.0 }
   | White -> { r = 1.0; g = 1.0; b = 1.0; a = 1.0 }
