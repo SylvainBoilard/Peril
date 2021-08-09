@@ -129,7 +129,7 @@
   <territory name="Western Australia" id="auw" adjacent="aue,ind,ng">
     1.224, -0.288, 1.052, -0.404, 1.036, -0.54, 1.272, -0.532
   </territory>
-  <continent name="North America" reinforcement="5" territories="ak,caw,ca,use,gl,nwt,cac,cae,usw"/>
+  <continent name="North America" reinforcement="5" territories="ak,caw,cam,use,gl,nwt,cac,cae,usw"/>
   <continent name="Europe" reinforcement="5" territories="br,ice,eun,sca,eus,eue,euw"/>
   <continent name="Asia" reinforcement="7" territories="afg,cn,hin,irk,jp,kam,me,mon,sea,sib,ura,yak"/>
   <continent name="South America" reinforcement="2" territories="ar,bra,per,ven"/>

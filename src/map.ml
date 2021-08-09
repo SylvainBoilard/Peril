@@ -195,6 +195,8 @@ let validate map =
   Array.iter (fun t ->
       if not (shape_is_convex t.shape) then
         Printf.eprintf "%s's shape is not convex.\n%!" t.name;
+      if not (Array.exists (fun (c : continent) -> List.mem t.id c.territories) map.continents) then
+        Printf.eprintf "%s is not part of a continent.\n%!" t.name;
       if t.adjacent = [] then
         Printf.eprintf "%s is not adjacent to any territory.\n%!" t.name
       else
@@ -206,7 +208,14 @@ let validate map =
             | None -> Printf.eprintf "%s is adjacent to inexistant territory with id %s.\n%!" t.name id'
             | _ -> ()
           ) t.adjacent
-    ) map.territories
+    ) map.territories;
+  Array.iter (fun c ->
+      List.iter (fun id ->
+          match find_territory_opt map id with
+          | Some _ -> ()
+          | None -> Printf.eprintf "%s has inexistant territory with id %s.\n%!" c.name id
+        ) c.territories
+    ) map.continents
 
 let find_territory_at_coords map coords =
   Array.find_opt (fun t ->
