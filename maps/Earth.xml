@@ -3,136 +3,358 @@
   <background>
     Earth.png
   </background>
-  <territory name="Alaska" id="ak" adjacent="caw,nwt,kam">
-    -1.236, 0.672, -1.432, 0.696, -1.584, 0.52, -1.352, 0.572
+  <territory name="Alaska">
+    <adjacent>
+      Western Canada, Northwest Territory, Kamchatka
+    </adjacent>
+    <shape>
+      -1.236, 0.672, -1.432, 0.696, -1.584, 0.52, -1.352, 0.572
+    </shape>
   </territory>
-  <territory name="Western Canada" id="caw" adjacent="ak,nwt,cac,usw">
-    -1.032, 0.568, -1.348, 0.568, -1.308, 0.452, -1.1, 0.448
+  <territory name="Western Canada">
+    <adjacent>
+      Alaska, Northwest Territory, Central Canada, Western United States
+    </adjacent>
+    <shape>
+      -1.032, 0.568, -1.348, 0.568, -1.308, 0.452, -1.1, 0.448
+    </shape>
   </territory>
-  <territory name="Central America" id="cam" adjacent="use,usw,ven">
-    -1.18, 0.208, -1.36, 0.256, -1.28, 0.1, -1.04, -0.036, -0.836, 0.092
+  <territory name="Central America">
+    <adjacent>
+      Eastern United States, Western United States, Venezuela
+    </adjacent>
+    <shape>
+      -1.18, 0.208, -1.36, 0.256, -1.28, 0.1, -1.04, -0.036, -0.836, 0.092
+    </shape>
   </territory>
-  <territory name="Eastern United States" id="use" adjacent="cam,cac,cae,usw">
-    -0.82, 0.404, -1.08, 0.444, -1.14, 0.22, -0.996, 0.224
+  <territory name="Eastern United States">
+    <adjacent>
+      Central America, Central Canada, Eastern Canada, Western United States
+    </adjacent>
+    <shape>
+      -0.82, 0.404, -1.08, 0.444, -1.14, 0.22, -0.996, 0.224
+    </shape>
   </territory>
-  <territory name="Greenland" id="gl" adjacent="nwt,cac,cae,ice">
-    -0.208, 0.788, -0.516, 0.78, -0.62, 0.748, -0.532, 0.568, -0.336, 0.656
+  <territory name="Greenland">
+    <adjacent>
+      Northwest Territory, Central Canada, Eastern Canada, Iceland
+    </adjacent>
+    <shape>
+      -0.208, 0.788, -0.516, 0.78, -0.62, 0.748, -0.532, 0.568, -0.336, 0.656
+    </shape>
   </territory>
-  <territory name="Northwest Territory" id="nwt" adjacent="ak,gl,caw,cac">
-    -1.004, 0.72, -1.244, 0.668, -1.348, 0.572, -0.956, 0.568, -0.756, 0.656, -0.808, 0.708
+  <territory name="Northwest Territory">
+    <adjacent>
+      Alaska, Greenland, Western Canada, Central Canada
+    </adjacent>
+    <shape>
+      -1.004, 0.72, -1.244, 0.668, -1.348, 0.572, -0.956, 0.568, -0.756, 0.656, -0.808, 0.708
+    </shape>
   </territory>
-  <territory name="Central Canada" id="cac" adjacent="gl,nwt,caw,cae,use,usw">
-    -0.98, 0.576, -1.036, 0.568, -1.1, 0.444, -0.896, 0.428, -0.884, 0.512
+  <territory name="Central Canada">
+    <adjacent>
+      Greenland, Northwest Territory, Western Canada, Eastern Canada, Eastern United States, Western United States
+    </adjacent>
+    <shape>
+      -0.98, 0.576, -1.036, 0.568, -1.1, 0.444, -0.896, 0.428, -0.884, 0.512
+    </shape>
   </territory>
-  <territory name="Eastern Canada" id="cae" adjacent="gl,cac,use">
-    -0.676, 0.568, -0.792, 0.596, -0.888, 0.468, -0.896, 0.42, -0.78, 0.4, -0.652, 0.496
+  <territory name="Eastern Canada">
+    <adjacent>
+      Greenland, Central Canada, Eastern United States
+    </adjacent>
+    <shape>
+      -0.676, 0.568, -0.792, 0.596, -0.888, 0.468, -0.896, 0.42, -0.78, 0.4, -0.652, 0.496
+    </shape>
   </territory>
-  <territory name="Western United States" id="usw" adjacent="cam,caw,cac,use">
-    -1.084, 0.44, -1.304, 0.448, -1.396, 0.344, -1.36, 0.256, -1.22, 0.252, -1.124, 0.304
+  <territory name="Western United States">
+    <adjacent>
+      Central America, Western Canada, Central Canada, Eastern United States
+    </adjacent>
+    <shape>
+      -1.084, 0.44, -1.304, 0.448, -1.396, 0.344, -1.36, 0.256, -1.22, 0.252, -1.124, 0.304
+    </shape>
   </territory>
-  <territory name="British Isles" id="br" adjacent="ice,sca,eun,euw">
-    -0.16, 0.556, -0.224, 0.524, -0.232, 0.48, -0.124, 0.472
+  <territory name="British Isles">
+    <adjacent>
+      Iceland, Scandinavia, Northern Europe, Western Europe
+    </adjacent>
+    <shape>
+      -0.16, 0.556, -0.224, 0.524, -0.232, 0.48, -0.124, 0.472
+    </shape>
   </territory>
-  <territory name="Iceland" id="ice" adjacent="br,sca,gl">
-    -0.24, 0.64, -0.31, 0.64, -0.31, 0.6, -0.24, 0.6
+  <territory name="Iceland">
+    <adjacent>
+      British Isles, Scandinavia, Greenland
+    </adjacent>
+    <shape>
+      -0.24, 0.64, -0.31, 0.64, -0.31, 0.6, -0.24, 0.6
+    </shape>
   </territory>
-  <territory name="Northern Europe" id="eun" adjacent="br,eus,eue,euw,sca">
-    0.06, 0.52, -0.112, 0.484, -0.06, 0.436, 0.088, 0.432
+  <territory name="Northern Europe">
+    <adjacent>
+      British Isles, Southern Europe, Eastern Europe, Western Europe, Scandinavia
+    </adjacent>
+    <shape>
+      0.06, 0.52, -0.112, 0.484, -0.06, 0.436, 0.088, 0.432
+    </shape>
   </territory>
-  <territory name="Scandinavia" id="sca" adjacent="br,ice,eun,eue">
-    0.088, 0.696, 0.008, 0.66, -0.084, 0.576, -0.012, 0.52, 0.132, 0.584
+  <territory name="Scandinavia">
+    <adjacent>
+      British Isles, Iceland, Northern Europe, Eastern Europe
+    </adjacent>
+    <shape>
+      0.088, 0.696, 0.008, 0.66, -0.084, 0.576, -0.012, 0.52, 0.132, 0.584
+    </shape>
   </territory>
-  <territory name="Southern Europe" id="eus" adjacent="eun,eue,euw,afn,egy,me">
-    0.152, 0.42, -0.072, 0.432, -0.064, 0.384, 0.084, 0.304
+  <territory name="Southern Europe">
+    <adjacent>
+      Northern Europe, Eastern Europe, Western Europe, North Africa, Egypt, Middle East
+    </adjacent>
+    <shape>
+      0.152, 0.42, -0.072, 0.432, -0.064, 0.384, 0.084, 0.304
+    </shape>
   </territory>
-  <territory name="Eastern Europe" id="eue" adjacent="sca,eun,eus,ura,afg,me">
-    0.332, 0.668, 0.132, 0.596, 0.056, 0.54, 0.096, 0.428, 0.18, 0.42, 0.392, 0.5
+  <territory name="Eastern Europe">
+    <adjacent>
+      Scandinavia, Northern Europe, Southern Europe, Ural, Afghanistan, Middle East
+    </adjacent>
+    <shape>
+      0.332, 0.668, 0.132, 0.596, 0.056, 0.54, 0.096, 0.428, 0.18, 0.42, 0.392, 0.5
+    </shape>
   </territory>
-  <territory name="Western Europe" id="euw" adjacent="br,eun,eus,afn">
-    -0.068, 0.388, -0.076, 0.448, -0.12, 0.476, -0.232, 0.376, -0.24, 0.308, -0.16, 0.304
+  <territory name="Western Europe">
+    <adjacent>
+      British Isles, Northern Europe, Southern Europe, North Africa
+    </adjacent>
+    <shape>
+      -0.068, 0.388, -0.076, 0.448, -0.12, 0.476, -0.232, 0.376, -0.24, 0.308, -0.16, 0.304
+    </shape>
   </territory>
-  <territory name="Afghanistan" id="afg" adjacent="cn,hin,me,ura,eue">
-    0.664, 0.416, 0.56, 0.512, 0.44, 0.512, 0.292, 0.46, 0.404, 0.316, 0.604, 0.308
+  <territory name="Afghanistan">
+    <adjacent>
+      China, Hindustan, Middle East, Ural, Eastern Europe
+    </adjacent>
+    <shape>
+      0.664, 0.416, 0.56, 0.512, 0.44, 0.512, 0.292, 0.46, 0.404, 0.316, 0.604, 0.308
+    </shape>
   </territory>
-  <territory name="China" id="cn" adjacent="afg,hin,ura,sib,mon,sea">
-    1.132, 0.2, 0.692, 0.448, 0.596, 0.312, 0.916, 0.132, 1.148, 0.108
+  <territory name="China">
+    <adjacent>
+      Afghanistan, Hindustan, Ural, Siberia, Mongolia, South East Asia
+    </adjacent>
+    <shape>
+      1.132, 0.2, 0.692, 0.448, 0.596, 0.312, 0.916, 0.132, 1.148, 0.108
+    </shape>
   </territory>
-  <territory name="Hindustan" id="hin" adjacent="afg,cn,me,sea">
-    0.856, 0.164, 0.604, 0.308, 0.476, 0.304, 0.504, 0.172, 0.72, -0.076
+  <territory name="Hindustan">
+    <adjacent>
+      Afghanistan, China, Middle East, South East Asia
+    </adjacent>
+    <shape>
+      0.856, 0.164, 0.604, 0.308, 0.476, 0.304, 0.504, 0.172, 0.72, -0.076
+    </shape>
   </territory>
-  <territory name="Irkutsk" id="irk" adjacent="kam,mon,sib,yak">
-    1.032, 0.524, 0.812, 0.596, 0.692, 0.452, 1.1, 0.452
+  <territory name="Irkutsk">
+    <adjacent>
+      Kamchatka, Mongolia, Siberia, Yakutsk
+    </adjacent>
+    <shape>
+      1.032, 0.524, 0.812, 0.596, 0.692, 0.452, 1.1, 0.452
+    </shape>
   </territory>
-  <territory name="Japan" id="jp" adjacent="kam,mon">
-    1.284, 0.412, 1.232, 0.408, 1.18, 0.244, 1.312, 0.232
+  <territory name="Japan">
+    <adjacent>
+      Kamchatka, Mongolia
+    </adjacent>
+    <shape>
+      1.284, 0.412, 1.232, 0.408, 1.18, 0.244, 1.312, 0.232
+    </shape>
   </territory>
-  <territory name="Kamchatka" id="kam" adjacent="yak,irk,mon,jp,ak">
-    1.428, 0.644, 1.172, 0.672, 1.028, 0.528, 1.168, 0.372, 1.316, 0.464
+  <territory name="Kamchatka">
+    <adjacent>
+      Yakutsk, Irkutsk, Mongolia, Japan, Alaska
+    </adjacent>
+    <shape>
+      1.428, 0.644, 1.172, 0.672, 1.028, 0.528, 1.168, 0.372, 1.316, 0.464
+    </shape>
   </territory>
-  <territory name="Middle East" id="me" adjacent="afg,hin,egy,afe,eue,eus">
-    0.476, 0.312, 0.184, 0.368, 0.14, 0.348, 0.328, 0.02, 0.44, 0.076, 0.508, 0.168
+  <territory name="Middle East">
+    <adjacent>
+      Afghanistan, Hindustan, Egypt, East Africa, Eastern Europe, Southern Europe
+    </adjacent>
+    <shape>
+      0.476, 0.312, 0.184, 0.368, 0.14, 0.348, 0.328, 0.02, 0.44, 0.076, 0.508, 0.168
+    </shape>
   </territory>
-  <territory name="Mongolia" id="mon" adjacent="cn,irk,jp,kam,sib">
-    1.096, 0.452, 0.684, 0.452, 0.924, 0.32, 1.184, 0.28, 1.148, 0.392
+  <territory name="Mongolia">
+    <adjacent>
+      China, Irkutsk, Japan, Kamchatka, Siberia
+    </adjacent>
+    <shape>
+      1.096, 0.452, 0.684, 0.452, 0.924, 0.32, 1.184, 0.28, 1.148, 0.392
+    </shape>
   </territory>
-  <territory name="South East Asia" id="sea" adjacent="cn,hin,ind">
-    0.988, 0.12, 0.876, 0.2, 0.832, 0.12, 0.964, -0.124, 1.032, 0.016
+  <territory name="South East Asia">
+    <adjacent>
+      China, Hindustan, Indonesia
+    </adjacent>
+    <shape>
+      0.988, 0.12, 0.876, 0.2, 0.832, 0.12, 0.964, -0.124, 1.032, 0.016
+    </shape>
   </territory>
-  <territory name="Siberia" id="sib" adjacent="cn,irk,yak,mon,ura">
-    0.708, 0.712, 0.644, 0.752, 0.488, 0.7, 0.676, 0.436, 0.792, 0.564
+  <territory name="Siberia">
+    <adjacent>
+      China, Irkutsk, Yakutsk, Mongolia, Ural
+    </adjacent>
+    <shape>
+      0.708, 0.712, 0.644, 0.752, 0.488, 0.7, 0.676, 0.436, 0.792, 0.564
+    </shape>
   </territory>
-  <territory name="Ural" id="ura" adjacent="afg,cn,sib,eue">
-    0.496, 0.7, 0.4, 0.696, 0.356, 0.616, 0.392, 0.504, 0.688, 0.428
+  <territory name="Ural">
+    <adjacent>
+      Afghanistan, China, Siberia, Eastern Europe
+    </adjacent>
+    <shape>
+      0.496, 0.7, 0.4, 0.696, 0.356, 0.616, 0.392, 0.504, 0.688, 0.428
+    </shape>
   </territory>
-  <territory name="Yakutsk" id="yak" adjacent="irk,kam,sib">
-    1.168, 0.672, 0.708, 0.708, 0.768, 0.612, 1.028, 0.528
+  <territory name="Yakutsk">
+    <adjacent>
+      Irkutsk, Kamchatka, Siberia
+    </adjacent>
+    <shape>
+      1.168, 0.672, 0.708, 0.708, 0.768, 0.612, 1.028, 0.528
+    </shape>
   </territory>
-  <territory name="Argentina" id="ar" adjacent="bra,per">
-    -0.772, -0.42, -0.896, -0.384, -0.888, -0.588, -0.8, -0.768, -0.7, -0.52
+  <territory name="Argentina">
+    <adjacent>
+      Brazil, Peru
+    </adjacent>
+    <shape>
+      -0.772, -0.42, -0.896, -0.384, -0.888, -0.588, -0.8, -0.768, -0.7, -0.52
+    </shape>
   </territory>
-  <territory name="Brazil" id="bra" adjacent="ar,per,ven,afn">
-    -0.82, -0.076, -0.964, -0.212, -0.664, -0.424, -0.588, -0.388, -0.528, -0.196
+  <territory name="Brazil">
+    <adjacent>
+      Argentina, Peru, Venezuela, North Africa
+    </adjacent>
+    <shape>
+      -0.82, -0.076, -0.964, -0.212, -0.664, -0.424, -0.588, -0.388, -0.528, -0.196
+    </shape>
   </territory>
-  <territory name="Peru" id="per" adjacent="ar,bra,ven">
-    -0.776, -0.348, -1.024, -0.168, -1.036, -0.184, -0.884, -0.38, -0.728, -0.444
+  <territory name="Peru">
+    <adjacent>
+      Argentina, Brazil, Venezuela
+    </adjacent>
+    <shape>
+      -0.776, -0.348, -1.024, -0.168, -1.036, -0.184, -0.884, -0.38, -0.728, -0.444
+    </shape>
   </territory>
-  <territory name="Venezuela" id="ven" adjacent="bra,per,cam">
-    -0.932, 0.02, -0.996, -0.032, -1.016, -0.116, -0.92, -0.16, -0.78, -0.036
+  <territory name="Venezuela">
+    <adjacent>
+      Brazil, Peru, Central America
+    </adjacent>
+    <shape>
+      -0.932, 0.02, -0.996, -0.032, -1.016, -0.116, -0.92, -0.16, -0.78, -0.036
+    </shape>
   </territory>
-  <territory name="Central Africa" id="afc" adjacent="afs,afe,afn">
-    0.092, 0, -0.06, -0.128, -0.016, -0.196, 0.176, -0.24
+  <territory name="Central Africa">
+    <adjacent>
+      South Africa, East Africa, North Africa
+    </adjacent>
+    <shape>
+      0.092, 0, -0.06, -0.128, -0.016, -0.196, 0.176, -0.24
+    </shape>
   </territory>
-  <territory name="East Africa" id="afe" adjacent="afc,mad,afs,afn,egy,me">
-    0.232, 0.136, 0.112, 0.136, 0.088, 0.024, 0.16, -0.196, 0.208, -0.244, 0.284, -0.268, 0.376, -0.048
+  <territory name="East Africa">
+    <adjacent>
+      Central Africa, Madagascar, South Africa, North Africa, Egypt, Middle East
+    </adjacent>
+    <shape>
+      0.232, 0.136, 0.112, 0.136, 0.088, 0.024, 0.16, -0.196, 0.208, -0.244, 0.284, -0.268, 0.376, -0.048
+    </shape>
   </territory>
-  <territory name="Egypt" id="egy" adjacent="afn,afe,me,eus">
-    0.232, 0.14, 0.208, 0.232, -0.032, 0.26, -0.052, 0.168, 0.108, 0.1
+  <territory name="Egypt">
+    <adjacent>
+      North Africa, East Africa, Middle East, Southern Europe
+    </adjacent>
+    <shape>
+      0.232, 0.14, 0.208, 0.232, -0.032, 0.26, -0.052, 0.168, 0.108, 0.1
+    </shape>
   </territory>
-  <territory name="Madagascar" id="mad" adjacent="afs,afe">
-    0.392, -0.288, 0.324, -0.32, 0.3, -0.432, 0.348, -0.432
+  <territory name="Madagascar">
+    <adjacent>
+      South Africa, East Africa
+    </adjacent>
+    <shape>
+      0.392, -0.288, 0.324, -0.32, 0.3, -0.432, 0.348, -0.432
+    </shape>
   </territory>
-  <territory name="North Africa" id="afn" adjacent="afc,afe,egy,bra,euw,eus">
-    -0.04, 0.312, -0.208, 0.288, -0.328, 0.14, -0.34, 0.028, -0.252, -0.076, -0.04, -0.108, 0.092, -0.008, 0.108, 0.096
+  <territory name="North Africa">
+    <adjacent>
+      Central Africa, East Africa, Egypt, Brazil, Western Europe, Southern Europe
+    </adjacent>
+    <shape>
+      -0.04, 0.312, -0.208, 0.288, -0.328, 0.14, -0.34, 0.028, -0.252, -0.076, -0.04, -0.108, 0.092, -0.008, 0.108, 0.096
+    </shape>
   </territory>
-  <territory name="South Africa" id="afs" adjacent="afc,afe,mad">
-    0.304, -0.268, -0.016, -0.2, -0.024, -0.32, 0.048, -0.54, 0.148, -0.532
+  <territory name="South Africa">
+    <adjacent>
+      Central Africa, East Africa, Madagascar
+    </adjacent>
+    <shape>
+      0.304, -0.268, -0.016, -0.2, -0.024, -0.32, 0.048, -0.54, 0.148, -0.532
+    </shape>
   </territory>
-  <territory name="Eastern Australia" id="aue" adjacent="auw,ng">
-    1.268, -0.264, 1.228, -0.312, 1.292, -0.648, 1.472, -0.46, 1.388, -0.26
+  <territory name="Eastern Australia">
+    <adjacent>
+      Western Australia, New Guinea
+    </adjacent>
+    <shape>
+      1.268, -0.264, 1.228, -0.312, 1.292, -0.648, 1.472, -0.46, 1.388, -0.26
+    </shape>
   </territory>
-  <territory name="Indonesia" id="ind" adjacent="ng,auw,sea">
-    1.156, 0.1, 0.88, -0.064, 0.988, -0.216, 1.22, -0.244, 1.228, -0.052
+  <territory name="Indonesia">
+    <adjacent>
+      New Guinea, Western Australia, South East Asia
+    </adjacent>
+    <shape>
+      1.156, 0.1, 0.88, -0.064, 0.988, -0.216, 1.22, -0.244, 1.228, -0.052
+    </shape>
   </territory>
-  <territory name="New Guinea" id="ng" adjacent="aue,auw,ind">
-    1.496, -0.156, 1.228, -0.092, 1.228, -0.164, 1.356, -0.244, 1.604, -0.264
+  <territory name="New Guinea">
+    <adjacent>
+      Eastern Australia, Western Australia, Indonesia
+    </adjacent>
+    <shape>
+      1.496, -0.156, 1.228, -0.092, 1.228, -0.164, 1.356, -0.244, 1.604, -0.264
+    </shape>
   </territory>
-  <territory name="Western Australia" id="auw" adjacent="aue,ind,ng">
-    1.224, -0.288, 1.052, -0.404, 1.036, -0.54, 1.272, -0.532
+  <territory name="Western Australia">
+    <adjacent>
+      Eastern Australia, Indonesia, New Guinea
+    </adjacent>
+    <shape>
+      1.224, -0.288, 1.052, -0.404, 1.036, -0.54, 1.272, -0.532
+    </shape>
   </territory>
-  <continent name="North America" reinforcement="5" territories="ak,caw,cam,use,gl,nwt,cac,cae,usw"/>
-  <continent name="Europe" reinforcement="5" territories="br,ice,eun,sca,eus,eue,euw"/>
-  <continent name="Asia" reinforcement="7" territories="afg,cn,hin,irk,jp,kam,me,mon,sea,sib,ura,yak"/>
-  <continent name="South America" reinforcement="2" territories="ar,bra,per,ven"/>
-  <continent name="Africa" reinforcement="3" territories="afc,afe,egy,mad,afn,afs"/>
-  <continent name="Australia" reinforcement="2" territories="aue,ind,ng,auw"/>
+  <continent name="North America" reinforcement="5">
+    Alaska, Western Canada, Central America, Eastern United States, Greenland, Northwest Territory, Central Canada, Eastern Canada, Western United States
+  </continent>
+  <continent name="Europe" reinforcement="5">
+    British Isles, Iceland, Northern Europe, Scandinavia, Southern Europe, Eastern Europe, Western Europe
+  </continent>
+  <continent name="Asia" reinforcement="7">
+    Afghanistan, China, Hindustan, Irkutsk, Japan, Kamchatka, Middle East, Mongolia, South East Asia, Siberia, Ural, Yakutsk
+  </continent>
+  <continent name="South America" reinforcement="2">
+    Argentina, Brazil, Peru, Venezuela
+  </continent>
+  <continent name="Africa" reinforcement="3">
+    Central Africa, East Africa, Egypt, Madagascar, North Africa, South Africa
+  </continent>
+  <continent name="Australia" reinforcement="2">
+    Eastern Australia, Indonesia, New Guinea, Western Australia
+  </continent>
 </peril>

@@ -27,40 +27,23 @@ module Array =
       in
       len < 2 || aux 0
 
-    let find_opt f a =
+    let find_offset f a =
       let len = length a in
       let rec aux = function
-        | i when i = len -> None
-        | i when f a.(i) -> Some a.(i)
+        | i when i = len -> raise Not_found
+        | i when f a.(i) -> i
         | i -> aux (i + 1)
       in
       aux 0
 
-    let find_sorted cmp a =
-      let rec aux min max =
-        if min = max then
-          raise Not_found
-        else
-          let mean = (min + max) / 2 in
-          match cmp a.(mean) with
-          | c when c < 0 -> aux min mean
-          | c when c > 0 -> aux (mean + 1) max
-          | _ -> a.(mean)
+    let find_offset_opt f a =
+      let len = length a in
+      let rec aux = function
+        | i when i = len -> None
+        | i when f a.(i) -> Some i
+        | i -> aux (i + 1)
       in
-      aux 0 (length a)
-
-    let find_sorted_opt cmp a =
-      let rec aux min max =
-        if min = max then
-          None
-        else
-          let mean = (min + max) / 2 in
-          match cmp a.(mean) with
-          | c when c < 0 -> aux min mean
-          | c when c > 0 -> aux (mean + 1) max
-          | _ -> Some a.(mean)
-      in
-      aux 0 (length a)
+      aux 0
 
     let of_rev_list = function
       | [] -> [||]
