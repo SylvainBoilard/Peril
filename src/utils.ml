@@ -65,15 +65,18 @@ module Array =
       done
   end
 
-let world_of_frame_coords c =
-  Vec2.{ x = c.x /. 250.0 -. 1.6; y = c.y /. -250.0 +. 1.0 }
+let world_scale = Vec2.{ x = 250.0; y = -250.0 }
+let world_offset = Vec2.{ x = 1.6; y = -1.0 }
 
-let frame_of_world_coords c =
-  Vec2.{ x = (c.x +. 1.6) *. 250.0; y = (c.y -. 1.0) *. -250.0 }
+let world_of_frame_coords coords =
+  Vec2.(sub (div coords world_scale) world_offset)
+
+let frame_of_world_coords coords =
+  Vec2.(mult (add coords world_offset) world_scale)
 
 let compute_shape_barycenter shape =
-  Vec2.mult
-    (Array.fold_left Vec2.add { x = 0.0; y = 0.0 } shape)
+  Vec2.scale
+    (Array.fold_left Vec2.add Vec2.zero shape)
     (1.0 /. float_of_int (Array.length shape))
 
 let load_program directory name =

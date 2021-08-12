@@ -1,5 +1,7 @@
 type t = { x: float; y: float }
 
+let zero = { x = 0.0; y = 0.0 }
+
 let rot_dir v = { x = -.v.y; y = v.x }
 
 let rot_indir v = { x = v.y; y = -.v.x }
@@ -8,7 +10,11 @@ let add v1 v2 = { x = v1.x +. v2.x; y = v1.y +. v2.y }
 
 let sub v1 v2 = { x = v1.x -. v2.x; y = v1.y -. v2.y }
 
-let mult v f = { x = v.x *. f; y = v.y *. f }
+let scale v f = { x = v.x *. f; y = v.y *. f }
+
+let mult v1 v2 = { x = v1.x *. v2.x; y = v1.y *. v2.y }
+
+let div v1 v2 = { x = v1.x /. v2.x; y = v1.y /. v2.y }
 
 let mag v = hypot v.x v.y
 
