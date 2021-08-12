@@ -4,13 +4,14 @@ type phase =
   | Reinforce
   | Battle_SelectTerritory
   | Battle_SelectTarget
-  | Battle_SelectAttackCount
-  | Battle_SelectDefenceCount
+  | Battle_SelectAttackerCount
+  | Battle_SelectDefenderCount
   | Battle_Resolving
-  | Battle_SelectInvadeCount
+  | Battle_Invade
   | Move_SelectTerritory
   | Move_SelectDestination
-  | Move_SelectCount
+  | Move_Move
+  | Over
 
 type t = {
     mutable players: Color.name list;

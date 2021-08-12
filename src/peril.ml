@@ -6,9 +6,11 @@ let selected_territory = ref None
 let target_territory = ref None
 let selected_poi = ref Map.NoPOI
 let pulse_animation_time = ref 0.0
-let dice_rolling = ref false
 let dice_animation_time = ref 0.0
+let dice_sorted = ref false
 let reinforcements = ref 0
+let attacking_armies = ref 0
+let defending_armies = ref 0
 
 let update_dashed_buffers (map : Map.t) (territory : Map.territory) vertex_buffer elem_buffer =
   let adj_count = Array.length territory.adjacent in
@@ -55,21 +57,48 @@ let compute_reinforcements (game : Game.t) player =
       else r
     ) (max 3 (!territories_owned / 3)) game.map.continents
 
+let sort_sub_dice_array a o l =
+  for m = o + l - 2 downto o do
+    for i = o to m do
+      if a.(i) < a.(i + 1) then (
+        let tmp = a.(i) in
+        a.(i) <- a.(i + 1);
+        a.(i + 1) <- tmp
+      )
+    done
+  done
+
 let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
-  match key, action with
-  | Escape, Press -> setWindowShouldClose window true
-  | F3, Press when !selected_poi = NoPOI ->
+  match key, action, game.current_phase with
+  | Escape, Press, _ -> setWindowShouldClose window true
+  | F3, Press, (Claim | Deploy | Reinforce | Battle_SelectTerritory | Move_SelectTerritory | Over)
+       when !selected_poi = NoPOI ->
      selected_territory := None;
      edition_mode := not !edition_mode
-  | F5, Press when !edition_mode ->
+  | F5, Press, _ when !edition_mode ->
      Map.validate game.map;
      Map.save_to_xml_file game.map "maps/Earth.xml"
-  | Space, Press when game.current_phase = Battle_SelectTerritory ->
+  | F6, Press, (Claim | Deploy) -> (* DEBUG: skip claim and deploy phases *)
+     for i = 0 to Array.length game.armies - 1 do
+       game.armies.(i) <- i / 3 mod 3 + 1
+     done;
+     for i = 0 to Array.length game.owner - 1 do
+       game.owner.(i) <- List.(nth game.players (i mod length game.players))
+     done;
+     game.current_player <- List.hd game.players;
+     reinforcements := compute_reinforcements game game.current_player;
+     game.current_phase <- Reinforce
+  | Space, Press, Battle_SelectTerritory ->
      selected_territory := None;
      game.current_phase <- Move_SelectTerritory
-  | Space, Press when game.current_phase = Move_SelectTerritory ->
+  | Space, Press, Battle_Invade ->
      selected_territory := None;
+     target_territory := None;
+     game.current_phase <- Battle_SelectTerritory
+  | Space, Press, (Move_SelectTerritory | Move_Move) ->
+     selected_territory := None;
+     target_territory := None;
      game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
      reinforcements := compute_reinforcements game game.current_player;
      game.current_phase <- Reinforce
@@ -150,20 +179,38 @@ let mouse_button_callback
      end
   | 0, true, Battle_SelectTerritory ->
      begin match clicked_territory with
-     | Some ct_i when game.owner.(ct_i) = game.current_player ->
+     | Some ct_i when game.owner.(ct_i) = game.current_player && game.armies.(ct_i) > 1 ->
         update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer;
         game.current_phase <- Battle_SelectTarget
      | _ -> update_selected_territory None game.map dashed_vertex_buffer dashed_elems_buffer
      end
   | 0, true, Battle_SelectTarget ->
      begin match clicked_territory with
-     | Some ct_i when game.owner.(ct_i) <> game.current_player ->
+     | Some ct_i when game.owner.(ct_i) = game.current_player ->
+        update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer
+     | Some ct_i when Array.mem ct_i game.map.territories.(Option.get !selected_territory).adjacent ->
         target_territory := clicked_territory;
-        game.current_phase <- Battle_SelectAttackCount
+        game.current_phase <- Battle_SelectAttackerCount
      | _ ->
-        update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer;
-        if clicked_territory = None then game.current_phase <- Battle_SelectTerritory
+        update_selected_territory None game.map dashed_vertex_buffer dashed_elems_buffer;
+        game.current_phase <- Battle_SelectTerritory
      end
+  | 0, true, Battle_SelectAttackerCount ->
+     let useable_armies = min 3 (game.armies.(Option.get !selected_territory) - 1) in
+     for i = 1 to useable_armies do
+       if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.3 })) <= 0.128 *. 0.128 then (
+         attacking_armies := i;
+         game.current_phase <- Battle_SelectDefenderCount
+       )
+     done
+  | 0, true, Battle_SelectDefenderCount ->
+     let useable_armies = min 2 game.armies.(Option.get !target_territory) in
+     for i = 1 to useable_armies do
+       if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.45 })) <= 0.128 *. 0.128 then (
+         defending_armies := i;
+         game.current_phase <- Battle_Resolving
+       )
+     done
   | 0, true, Move_SelectTerritory ->
      begin match clicked_territory with
      | Some ct_i when game.owner.(ct_i) = game.current_player ->
@@ -174,13 +221,23 @@ let mouse_button_callback
   | 0, true, Move_SelectDestination ->
      begin match clicked_territory with
      | Some ct_i when game.owner.(ct_i) = game.current_player ->
-        target_territory := clicked_territory;
-        game.current_phase <- Move_SelectCount
+        if Array.mem ct_i game.map.territories.(Option.get !selected_territory).adjacent then (
+          target_territory := clicked_territory;
+          game.current_phase <- Move_Move
+        ) else
+          update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer
      | _ ->
-        update_selected_territory clicked_territory game.map dashed_vertex_buffer dashed_elems_buffer;
-        if clicked_territory = None then game.current_phase <- Move_SelectTerritory
+        update_selected_territory None game.map dashed_vertex_buffer dashed_elems_buffer;
+        game.current_phase <- Move_SelectTerritory
      end
-  (* | 0, true, _ -> . *)
+  | 0, true, (Battle_Invade | Move_Move) ->
+     let st_i = Option.get !selected_territory in
+     begin match clicked_territory, !target_territory with
+     | Some ct_i, Some tt_i when ct_i = tt_i && game.armies.(st_i) > 1 ->
+        game.armies.(st_i) <- game.armies.(st_i) - 1;
+        game.armies.(ct_i) <- game.armies.(ct_i) + 1;
+     | _ -> ()
+     end
   | 0, false, _ when !selected_poi <> NoPOI ->
      selected_poi := NoPOI;
      GLFW.setInputMode window GLFW.Cursor GLFW.Normal
@@ -321,6 +378,7 @@ let () =
     GL.useProgram basic_shader.program;
     GL.activeTexture 0;
     GL.uniform1i basic_shader.texture_location 0;
+    GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
     draw_basic basic_shader background_texture background_buffer GL.TriangleFan 0 4;
 
@@ -359,6 +417,7 @@ let () =
     GL.useProgram basic_shader.program;
     GL.activeTexture 0;
     GL.uniform1i basic_shader.texture_location 0;
+    GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
     if not !edition_mode then (
       begin match !selected_territory with
@@ -387,48 +446,75 @@ let () =
         Text.destroy outline
       done;
 
-      if !dice_rolling then (
-        GL.useProgram basic_shader.program;
-        GL.activeTexture 0;
-        GL.uniform1i basic_shader.texture_location 0;
+      GL.useProgram basic_shader.program;
+      GL.activeTexture 0;
+      GL.uniform1i basic_shader.texture_location 0;
+      GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
-        GL.enable GL.Blend;
-        draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
-        for i = 0 to 2 do
-          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) (float_of_int (i - 1) *. -0.3);
-          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
-          draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
-        done;
-        for i = 0 to 1 do
-          GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int (i - 1) *. -0.3);
-          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.5;
-          draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
-        done;
-        GL.disable GL.Blend;
-        GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-        GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
-      ) else if game.current_phase = Battle_SelectAttackCount
-                || game.current_phase = Battle_SelectDefenceCount then (
-        GL.useProgram basic_shader.program;
-        GL.activeTexture 0;
-        GL.uniform1i basic_shader.texture_location 0;
-
-        GL.enable GL.Blend;
-        draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
-        for i = 0 to 2 do
-          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) (float_of_int (i - 1) *. -0.3);
-          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.0;
-          draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
-        done;
-        for i = 0 to 1 do
-          GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int (i - 1) *. -0.3);
-          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.5;
-          draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
-        done;
-        GL.disable GL.Blend;
-        GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-        GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
-      )
+      begin match game.current_phase with
+      | Battle_SelectAttackerCount ->
+         GL.enable GL.Blend;
+         draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
+         let c = Color.of_name game.owner.(Option.get !selected_territory) in
+         let useable_armies = min 3 (game.armies.(Option.get !selected_territory) - 1) in
+         for i = 0 to 2 do
+           if i + 1 > useable_armies then
+             GL.uniform4f basic_shader.ambient_color_location 0.25 0.25 0.25 1.0
+           else if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 1) *. 0.3 })) <= 0.128 *. 0.128 then
+             GL.uniform4f basic_shader.ambient_color_location (c.r +. 0.1) (c.g +. 0.1) (c.b +. 0.1) 1.0
+           else
+             GL.uniform4f basic_shader.ambient_color_location (c.r -. 0.1) (c.g -. 0.1) (c.b -. 0.1) 1.0;
+           GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 (float_of_int (i - 1) *. 0.3);
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.0;
+           draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
+         done;
+         GL.disable GL.Blend;
+         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
+         GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
+         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
+      | Battle_SelectDefenderCount ->
+         GL.enable GL.Blend;
+         draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
+         let c = Color.of_name game.owner.(Option.get !selected_territory) in
+         GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
+         GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
+         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (!attacking_armies - 1) *. 0.25) 0.0;
+         draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4;
+         let c = Color.of_name game.owner.(Option.get !target_territory) in
+         let useable_armies = min 2 game.armies.(Option.get !target_territory) in
+         for i = 0 to 1 do
+           if i + 1 > useable_armies then
+             GL.uniform4f basic_shader.ambient_color_location 0.25 0.25 0.25 1.0
+           else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.15 })) <= 0.128 *. 0.128 then
+             GL.uniform4f basic_shader.ambient_color_location (c.r +. 0.1) (c.g +. 0.1) (c.b +. 0.1) 1.0
+           else
+             GL.uniform4f basic_shader.ambient_color_location (c.r -. 0.1) (c.g -. 0.1) (c.b -. 0.1) 1.0;
+           GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.15);
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.5;
+           draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
+         done;
+         GL.disable GL.Blend;
+         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
+         GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
+         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
+      | Battle_Resolving ->
+         GL.enable GL.Blend;
+         draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
+         for i = 0 to !attacking_armies - 1 do
+           GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) (float_of_int (i - 1) *. -0.3);
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
+           draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
+         done;
+         for i = 0 to !defending_armies - 1 do
+           GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int (i - 1) *. -0.3);
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.5;
+           draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
+         done;
+         GL.disable GL.Blend;
+         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
+         GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
+      | _ -> ()
+      end
     ) else (
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
@@ -487,36 +573,77 @@ let () =
       | Battle_SelectTarget ->
          Printf.sprintf "%s player, select the territory to attack"
            (Color.string_of_name game.current_player)
-      | Battle_SelectAttackCount ->
+      | Battle_SelectAttackerCount ->
          Printf.sprintf "%s player, select the number of armies to attack with"
            (Color.string_of_name game.current_player)
-      | Battle_SelectDefenceCount ->
-         Printf.sprintf "<fixme> player, select the number of armies to defend with"
+      | Battle_SelectDefenderCount ->
+         Printf.sprintf "%s player, select the number of armies to defend with"
+           (Color.string_of_name game.owner.(Option.get !target_territory))
+      | Battle_Resolving -> "Battle rages..."
+      | Battle_Invade ->
+         Printf.sprintf "%s player, invade the territory you captured with more armies, or press Space to pass"
+           (Color.string_of_name game.current_player)
       | Move_SelectTerritory ->
          Printf.sprintf "%s player, select a territory from which to move armies, or press Space to pass"
            (Color.string_of_name game.current_player)
       | Move_SelectDestination ->
          Printf.sprintf "%s player, select the territory to send your armies to"
            (Color.string_of_name game.current_player)
-      | Move_SelectCount ->
-         Printf.sprintf "%s player, select the number of armies to move"
+      | Move_Move ->
+         Printf.sprintf "%s player, move more armies to this territory, or press Space to pass"
            (Color.string_of_name game.current_player)
-      | _ -> "<todo>"
+      | Over ->
+         Printf.sprintf "%s player conquered the world!"
+           (Color.string_of_name game.current_player)
     in
     let status_text = Text.make text_ctx text_font_serif (String.capitalize_ascii status) Regular 16 in
     Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.of_name Black);
     Text.destroy status_text;
 
-    pulse_animation_time := !pulse_animation_time +. 0.008;
+    pulse_animation_time := !pulse_animation_time +. 1.0 /. 120.0;
     if !pulse_animation_time > 1.0 then pulse_animation_time := 0.0;
 
-    if !dice_rolling && !dice_animation_time < 1.0 then (
-      dice_animation_time := !dice_animation_time +. 0.0125;
-      let t = sqrt !dice_animation_time in
-      for i = 0 to 4 do
-        if Random.float 1.01 > t then
-          dice_points.(i) <- Random.int 6
-      done
+    if game.current_phase = Battle_Resolving then (
+      dice_animation_time := !dice_animation_time +. 1.0 /. 60.0;
+      if !dice_animation_time < 1.0 then (
+        let t = sqrt !dice_animation_time in
+        for i = 0 to 4 do
+          if Random.float 1.01 > t then
+            dice_points.(i) <- Random.int 6
+        done
+      ) else if !dice_animation_time >= 1.5 && not !dice_sorted then (
+        sort_sub_dice_array dice_points 0 !attacking_armies;
+        sort_sub_dice_array dice_points 3 !defending_armies;
+        dice_sorted := true
+      ) else if !dice_animation_time >= 3.0 then (
+        let atk_i, def_i = Option.get !selected_territory, Option.get !target_territory in
+        let atk_dead, def_dead = ref 0, ref 0 in
+        for i = 0 to min !attacking_armies !defending_armies - 1 do
+          if dice_points.(i) > dice_points.(i + 3)
+          then incr def_dead
+          else incr atk_dead
+        done;
+        game.armies.(def_i) <- game.armies.(def_i) - !def_dead;
+        if game.armies.(def_i) = 0 then (
+          let former_owner = game.owner.(def_i) in
+          game.armies.(atk_i) <- game.armies.(atk_i) - !attacking_armies;
+          game.armies.(def_i) <- !attacking_armies - !atk_dead;
+          game.owner.(def_i) <- game.current_player;
+          if Array.for_all ((<>) former_owner) game.owner then
+            game.players <- List.filter ((<>) former_owner) game.players;
+          if List.length game.players = 1 then
+            game.current_phase <- Over
+          else
+            game.current_phase <- Battle_Invade
+        ) else (
+          game.armies.(atk_i) <- game.armies.(atk_i) - !atk_dead;
+          selected_territory := None;
+          target_territory := None;
+          game.current_phase <- Battle_SelectTerritory
+        );
+        dice_animation_time := 0.0;
+        dice_sorted := false
+      )
     );
 
     GLFW.swapBuffers window

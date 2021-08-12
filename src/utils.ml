@@ -117,6 +117,7 @@ type basic_shader = {
     texture_location: GL.uniform_location;
     vertex_coords_offset_location: GL.uniform_location;
     texture_coords_offset_location: GL.uniform_location;
+    ambient_color_location: GL.uniform_location;
   }
 
 let load_basic_shader () =
@@ -127,8 +128,9 @@ let load_basic_shader () =
   let texture_location = GL.getUniformLocation program "Texture" in
   let vertex_coords_offset_location = GL.getUniformLocation program "VertexCoordsOffset" in
   let texture_coords_offset_location = GL.getUniformLocation program "TextureCoordsOffset" in
+  let ambient_color_location = GL.getUniformLocation program "AmbientColor" in
   { program; vertex_coords_location; vertex_texture_coords_location; vertex_color_location;
-    texture_location; vertex_coords_offset_location; texture_coords_offset_location }
+    texture_location; vertex_coords_offset_location; texture_coords_offset_location; ambient_color_location }
 
 let draw_basic_prepare shader texture buffer =
   GL.bindTexture GL.Texture2D texture;
