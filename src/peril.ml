@@ -3,12 +3,6 @@ open Bigarray
 
 let edition_mode = ref false
 let selected_poi = ref Map.NoPOI
-let pulse_animation_time = ref 0.0
-let dice_animation_time = ref 0.0
-let dice_sorted = ref false
-let reinforcements = ref 0
-let attacking_armies = ref 0
-let defending_armies = ref 0
 
 let update_dashed_buffers (game : Game.t) vertex_buffer elem_buffer =
   let territory = game.map.territories.(game.selected_territory) in
@@ -44,16 +38,6 @@ let update_selected_territory territory (game : Game.t) dashed_vertex_buffer das
       update_dashed_buffers game dashed_vertex_buffer dashed_elem_buffer
   )
 
-let compute_reinforcements (game : Game.t) player =
-  let territories_owned =
-    Array.fold_left (fun c o -> if o = player then c + 1 else c) 0 game.owner
-  in
-  Array.fold_left (fun r (c : Map.continent) ->
-      if Array.for_all (fun i -> game.owner.(i) = player) c.territories
-      then r + c.reinforcement
-      else r
-    ) (max 3 (territories_owned / 3)) game.map.continents
-
 let sort_sub_dice_array a o l =
   for m = o + l - 2 downto o do
     for i = o to m do
@@ -86,7 +70,7 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      Random.set_state random_state;
      Array.shuffle game.owner;
      game.current_player <- List.hd game.players;
-     reinforcements := compute_reinforcements game game.current_player;
+     game.reinforcements <- Game.compute_reinforcements game game.current_player;
      game.current_phase <- Reinforce
   | Space, Press, Battle_SelectTerritory ->
      game.selected_territory <- -1;
@@ -99,7 +83,7 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      game.selected_territory <- -1;
      game.target_territory <- -1;
      game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
-     reinforcements := compute_reinforcements game game.current_player;
+     game.reinforcements <- Game.compute_reinforcements game game.current_player;
      game.current_phase <- Reinforce
   | _ -> ()
 
@@ -152,15 +136,15 @@ let mouse_button_callback
        game.armies.(clicked_territory) <- game.armies.(clicked_territory) + 1;
        game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
        if Array.fold_left (+) 0 game.armies = 105 then (
-         reinforcements := compute_reinforcements game game.current_player;
+         game.reinforcements <- Game.compute_reinforcements game game.current_player;
          game.current_phase <- Reinforce
        )
      )
   | 0, true, Reinforce ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
        game.armies.(clicked_territory) <- game.armies.(clicked_territory) + 1;
-       decr reinforcements;
-       if !reinforcements = 0 then
+       game.reinforcements <- game.reinforcements - 1;
+       if game.reinforcements = 0 then
          game.current_phase <- Battle_SelectTerritory
      )
   | 0, true, Battle_SelectTerritory ->
@@ -183,7 +167,7 @@ let mouse_button_callback
      let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
      for i = 1 to useable_armies do
        if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.3 })) <= 0.128 *. 0.128 then (
-         attacking_armies := i;
+         game.attacking_armies <- i;
          game.current_phase <- Battle_SelectDefenderCount
        )
      done
@@ -191,7 +175,7 @@ let mouse_button_callback
      let useable_armies = min 2 game.armies.(game.target_territory) in
      for i = 1 to useable_armies do
        if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.45 })) <= 0.128 *. 0.128 then (
-         defending_armies := i;
+         game.defending_armies <- i;
          game.current_phase <- Battle_Resolving
        )
      done
@@ -343,15 +327,19 @@ let () =
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
   let game =
     { Game.players = [ Red; Green; Blue ]; current_player = Red; current_phase = Claim;
-      selected_territory = -1; target_territory = -1;
+      reinforcements = 0; selected_territory = -1; target_territory = -1;
+      attacking_armies = 0; defending_armies = 0;
       map;
       owner = Array.make (Array.length map.territories) Color.White;
       armies = Array.make (Array.length map.territories) 0 }
   in
+  let dice_points = Array.make 5 0 in
+  let pulse_animation_time = ref 0.0 in
+  let dice_animation_time = ref 0.0 in
+  let dice_sorted = ref false in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
-  let dice_points = Array.make 5 0 in
   while not (GLFW.windowShouldClose window) do
     GLFW.pollEvents ();
     let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
@@ -460,7 +448,7 @@ let () =
          let c = Color.rgba_of_name game.owner.(game.selected_territory) in
          GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
-         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (!attacking_armies - 1) *. 0.25) 0.0;
+         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.25) 0.0;
          draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4;
          let c = Color.hsla_of_name game.owner.(game.target_territory) in
          let useable_armies = min 2 game.armies.(game.target_territory) in
@@ -486,12 +474,12 @@ let () =
       | Battle_Resolving ->
          GL.enable GL.Blend;
          draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
-         for i = 0 to !attacking_armies - 1 do
+         for i = 0 to game.attacking_armies - 1 do
            GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) (float_of_int (i - 1) *. -0.3);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
            draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
          done;
-         for i = 0 to !defending_armies - 1 do
+         for i = 0 to game.defending_armies - 1 do
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int (i - 1) *. -0.3);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.5;
            draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
@@ -552,7 +540,7 @@ let () =
            (Color.string_of_name game.current_player) ((105 - Array.fold_left (+) (-2) game.armies) / 3)
       | Reinforce ->
          Printf.sprintf "%s player, deploy an army on one of your territories (you have %d remaining)"
-           (Color.string_of_name game.current_player) !reinforcements
+           (Color.string_of_name game.current_player) game.reinforcements
       | Battle_SelectTerritory ->
          Printf.sprintf "%s player, select a territory from which to attack, or press Space to pass"
            (Color.string_of_name game.current_player)
@@ -598,13 +586,13 @@ let () =
             dice_points.(i) <- Random.int 6
         done
       ) else if !dice_animation_time >= 1.5 && not !dice_sorted then (
-        sort_sub_dice_array dice_points 0 !attacking_armies;
-        sort_sub_dice_array dice_points 3 !defending_armies;
+        sort_sub_dice_array dice_points 0 game.attacking_armies;
+        sort_sub_dice_array dice_points 3 game.defending_armies;
         dice_sorted := true
       ) else if !dice_animation_time >= 3.0 then (
         let atk_i, def_i = game.selected_territory, game.target_territory in
         let atk_dead, def_dead = ref 0, ref 0 in
-        for i = 0 to min !attacking_armies !defending_armies - 1 do
+        for i = 0 to min game.attacking_armies game.defending_armies - 1 do
           if dice_points.(i) > dice_points.(i + 3)
           then incr def_dead
           else incr atk_dead
@@ -612,14 +600,16 @@ let () =
         game.armies.(def_i) <- game.armies.(def_i) - !def_dead;
         if game.armies.(def_i) = 0 then (
           let former_owner = game.owner.(def_i) in
-          game.armies.(atk_i) <- game.armies.(atk_i) - !attacking_armies;
-          game.armies.(def_i) <- !attacking_armies - !atk_dead;
+          game.armies.(atk_i) <- game.armies.(atk_i) - game.attacking_armies;
+          game.armies.(def_i) <- game.attacking_armies - !atk_dead;
           game.owner.(def_i) <- game.current_player;
           if Array.for_all ((<>) former_owner) game.owner then
             game.players <- List.filter ((<>) former_owner) game.players;
-          if List.length game.players = 1 then
+          if List.length game.players = 1 then (
+            game.selected_territory <- -1;
+            game.target_territory <- -1;
             game.current_phase <- Over
-          else
+          ) else
             game.current_phase <- Battle_Invade
         ) else (
           game.armies.(atk_i) <- game.armies.(atk_i) - !atk_dead;
