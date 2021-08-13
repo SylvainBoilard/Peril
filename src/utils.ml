@@ -36,15 +36,6 @@ module Array =
       in
       aux 0
 
-    let find_offset_opt f a =
-      let len = length a in
-      let rec aux = function
-        | i when i = len -> None
-        | i when f a.(i) -> Some i
-        | i -> aux (i + 1)
-      in
-      aux 0
-
     let of_rev_list = function
       | [] -> [||]
       | hd :: tl as l ->

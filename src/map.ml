@@ -225,9 +225,11 @@ let validate map =
     ) map.territories
 
 let find_territory_at_coords map coords =
-  Array.find_offset_opt (fun t ->
-      Array.for_all_successive_pairs_loop (fun v1 v2 -> Vec2.side v1 v2 coords <= 0.0) t.shape
-    ) map.territories
+  try
+    Array.find_offset (fun t ->
+        Array.for_all_successive_pairs_loop (fun v1 v2 -> Vec2.side v1 v2 coords <= 0.0) t.shape
+      ) map.territories
+  with Not_found -> -1
 
 type shape_poi = Corner of int | Edge of int * int | NoPOI
 

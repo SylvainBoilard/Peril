@@ -17,6 +17,8 @@ type t = {
     mutable players: Color.name list;
     mutable current_player: Color.name;
     mutable current_phase: phase;
+    mutable selected_territory: int;
+    mutable target_territory: int;
     map: Map.t;
     owner: Color.name array;
     armies: int array;
