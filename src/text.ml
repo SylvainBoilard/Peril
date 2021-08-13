@@ -179,7 +179,7 @@ let destroy text =
   GL.deleteBuffer text.data_buffer;
   GL.deleteBuffer text.indices_buffer
 
-let draw ctx text (position : Vec2.t) (color : Color.t) =
+let draw ctx text (position : Vec2.t) (color : Color.rgba) =
   GL.enable GL.Blend;
   GL.useProgram ctx.program;
   GL.uniform2f ctx.view_offset_location (400.0 -. position.x) (position.y -. 250.0);

@@ -369,7 +369,7 @@ let () =
     | -1, i | i, _ ->
        let name_text = Text.make text_ctx text_font_serif map.territories.(i).name Regular 16 in
        let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.of_name Black);
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name Black);
        Text.destroy name_text
     end;
 
@@ -418,8 +418,8 @@ let () =
         let outline = Text.make text_ctx text_font_sans armies_str Outline 20 in
         let offset = Vec2.{ x = float_of_int (text.width / 2); y = -8.0 } in
         let pos = Vec2.(sub (frame_of_world_coords map.territories.(i).center) offset) in
-        Text.draw text_ctx outline pos (Color.of_name Black);
-        Text.draw text_ctx text pos (Color.of_name game.owner.(i));
+        Text.draw text_ctx outline pos (Color.rgba_of_name Black);
+        Text.draw text_ctx text pos (Color.rgba_of_name game.owner.(i));
         Text.destroy text;
         Text.destroy outline
       done;
@@ -433,15 +433,19 @@ let () =
       | Battle_SelectAttackerCount ->
          GL.enable GL.Blend;
          draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
-         let c = Color.of_name game.owner.(game.selected_territory) in
+         let c = Color.hsla_of_name game.owner.(game.selected_territory) in
          let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
          for i = 0 to 2 do
-           if i + 1 > useable_armies then
-             GL.uniform4f basic_shader.ambient_color_location 0.25 0.25 0.25 1.0
-           else if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 1) *. 0.3 })) <= 0.128 *. 0.128 then
-             GL.uniform4f basic_shader.ambient_color_location (c.r +. 0.1) (c.g +. 0.1) (c.b +. 0.1) 1.0
-           else
-             GL.uniform4f basic_shader.ambient_color_location (c.r -. 0.1) (c.g -. 0.1) (c.b -. 0.1) 1.0;
+           let c =
+             Color.rgba_of_hsla @@
+               if i + 1 > useable_armies then
+                 { c with s = 0.0; l = 0.25 }
+               else if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 1) *. 0.3 })) <= 0.128 *. 0.128 then
+                 { c with l = 0.55 }
+               else
+                 { c with l = 0.45 }
+           in
+           GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 (float_of_int (i - 1) *. 0.3);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.0;
            draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
@@ -453,20 +457,24 @@ let () =
       | Battle_SelectDefenderCount ->
          GL.enable GL.Blend;
          draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
-         let c = Color.of_name game.owner.(game.selected_territory) in
+         let c = Color.rgba_of_name game.owner.(game.selected_territory) in
          GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (!attacking_armies - 1) *. 0.25) 0.0;
          draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4;
-         let c = Color.of_name game.owner.(game.target_territory) in
+         let c = Color.hsla_of_name game.owner.(game.target_territory) in
          let useable_armies = min 2 game.armies.(game.target_territory) in
          for i = 0 to 1 do
-           if i + 1 > useable_armies then
-             GL.uniform4f basic_shader.ambient_color_location 0.25 0.25 0.25 1.0
-           else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.15 })) <= 0.128 *. 0.128 then
-             GL.uniform4f basic_shader.ambient_color_location (c.r +. 0.1) (c.g +. 0.1) (c.b +. 0.1) 1.0
-           else
-             GL.uniform4f basic_shader.ambient_color_location (c.r -. 0.1) (c.g -. 0.1) (c.b -. 0.1) 1.0;
+           let c =
+             Color.rgba_of_hsla @@
+               if i + 1 > useable_armies then
+                 { c with s = 0.0; l = 0.25 }
+               else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.15 })) <= 0.128 *. 0.128 then
+                 { c with l = 0.55 }
+               else
+                 { c with l = 0.45 }
+           in
+           GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.15);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.5;
            draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
@@ -575,7 +583,7 @@ let () =
            (Color.string_of_name game.current_player)
     in
     let status_text = Text.make text_ctx text_font_serif (String.capitalize_ascii status) Regular 16 in
-    Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.of_name Black);
+    Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.rgba_of_name Black);
     Text.destroy status_text;
 
     pulse_animation_time := !pulse_animation_time +. 1.0 /. 120.0;

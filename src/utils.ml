@@ -1,5 +1,12 @@
 let () = Random.self_init ()
 
+module Float =
+  struct
+    include Float
+
+    let clamp low high f = max low (min high f)
+  end
+
 module List =
   struct
     include List
