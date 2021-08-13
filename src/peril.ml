@@ -78,11 +78,13 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      Map.save_to_xml_file game.map "maps/Earth.xml"
   | F6, Press, (Claim | Deploy) -> (* DEBUG: skip claim and deploy phases *)
      for i = 0 to Array.length game.armies - 1 do
-       game.armies.(i) <- i / 3 mod 3 + 1
-     done;
-     for i = 0 to Array.length game.owner - 1 do
+       game.armies.(i) <- if i < 21 then 2 else 3;
        game.owner.(i) <- List.(nth game.players (i mod length game.players))
      done;
+     let random_state = Random.get_state () in
+     Array.shuffle game.armies;
+     Random.set_state random_state;
+     Array.shuffle game.owner;
      game.current_player <- List.hd game.players;
      reinforcements := compute_reinforcements game game.current_player;
      game.current_phase <- Reinforce
