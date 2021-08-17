@@ -38,16 +38,24 @@ let update_selected_territory territory (game : Game.t) dashed_vertex_buffer das
       update_dashed_buffers game dashed_vertex_buffer dashed_elem_buffer
   )
 
-let sort_sub_dice_array a o l =
-  for m = o + l - 2 downto o do
-    for i = o to m do
-      if a.(i) < a.(i + 1) then (
-        let tmp = a.(i) in
-        a.(i) <- a.(i + 1);
-        a.(i + 1) <- tmp
-      )
-    done
-  done
+let sort_dice points order offset len =
+  let top_i = offset + len in
+  let rec aux bot_i max_i max = function
+    | i when i = top_i ->
+       if max_i <> bot_i then (
+         points.(max_i) <- points.(bot_i);
+         points.(bot_i) <- max;
+         let tmp = order.(max_i) in
+         order.(max_i) <- order.(bot_i);
+         order.(bot_i) <- tmp
+       );
+       if bot_i + 2 < top_i then
+         aux (bot_i + 1) (bot_i + 1) points.(bot_i + 1) (bot_i + 2)
+    | i when points.(i) > max -> aux bot_i i points.(i) (i + 1)
+    | i -> aux bot_i max_i max (i + 1)
+  in
+  if len >= 2 then
+    aux offset offset points.(offset) (offset + 1)
 
 let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
@@ -321,6 +329,7 @@ let () =
   let dashed_elem_buffer = GL.genBuffer () in
   let dice_texture, dice_buffer = load_dice () in
   let battle_texture, battle_buffer = load_battle () in
+  let arrow_buffer = GL.genBuffer () in
   let ui_background_buffer = make_ui_background () in
   let text_ctx = Text.init () in
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
@@ -334,9 +343,10 @@ let () =
       armies = Array.make (Array.length map.territories) 0 }
   in
   let dice_points = Array.make 5 0 in
+  let dice_order = Array.init 5 (fun i -> i mod 3) in
+  let dice_sorted = ref false in
   let pulse_animation_time = ref 0.0 in
   let dice_animation_time = ref 0.0 in
-  let dice_sorted = ref false in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
@@ -472,19 +482,71 @@ let () =
          GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
          GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
       | Battle_Resolving ->
+         let dice_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.1) *. 2.0) in
+         let dice_t_io = ease_in_out dice_t in
+         let dice_t_i_f = ease_in (min 1.0 (dice_t *. 2.0)) in
+         let arrow_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.3) *. 2.0) in
+         let arrow_t_io = ease_in_out arrow_t in
+         let arrow_t_i_f = ease_in (min 1.0 (arrow_t *. 3.0)) in
+         let min_armies = min game.attacking_armies game.defending_armies in
          GL.enable GL.Blend;
          draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
+         for i = 0 to min_armies - 1 do
+           let x = Float.lerp (-0.172) 0.140 arrow_t_io in
+           let y = float_of_int (i - 1) *. -0.3 in
+           let buffer_data =
+             Array1.of_array Float32 C_layout @@
+               if dice_points.(i) > dice_points.(i + 3) then
+                 [|   x         ; y +. 0.032;   0.78125; 0.0  ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                     -0.172     ; y +. 0.032;   0.75   ; 0.0  ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                     -0.172     ; y -. 0.032;   0.75   ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      x         ; y -. 0.032;   0.78125; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      x +. 0.032; y -. 0.032;   0.8125 ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      x +. 0.032; y +. 0.032;   0.8125 ; 0.0  ;   1.0; 1.0; 1.0; arrow_t_i_f |]
+               else
+                 [| -.x         ; y +. 0.032;   0.78125; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
+                    -.x -. 0.032; y +. 0.032;   0.8125 ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
+                    -.x -. 0.032; y -. 0.032;   0.8125 ; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                    -.x         ; y -. 0.032;   0.78125; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      0.172     ; y -. 0.032;   0.75   ; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      0.172     ; y +. 0.032;   0.75   ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f |]
+           in
+           GL.bindBuffer GL.ArrayBuffer arrow_buffer;
+           GL.bufferData GL.ArrayBuffer buffer_data GL.DynamicDraw;
+           draw_basic basic_shader battle_texture arrow_buffer GL.TriangleFan 0 6
+         done;
          for i = 0 to game.attacking_armies - 1 do
-           GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) (float_of_int (i - 1) *. -0.3);
+           let o = dice_order.(i) in
+           let y =
+             if i < min_armies then (
+               GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
+               Float.lerp (float_of_int (o - 1)) (float_of_int (i - 1)) dice_t_io *. -0.3
+             ) else (
+               GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 (1.0 -. dice_t_i_f);
+               Float.lerp (float_of_int (o - 1)) (float_of_int (o - 1) +. 0.5) dice_t_i_f *. -0.3
+             )
+           in
+           GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) y;
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
            draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
          done;
          for i = 0 to game.defending_armies - 1 do
-           GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int (i - 1) *. -0.3);
+           let o = dice_order.(i + 3) in
+           let y =
+             if i < min_armies then (
+               GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
+               Float.lerp (float_of_int (o - 1)) (float_of_int (i - 1)) dice_t_io *. -0.3
+             ) else (
+               GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 (1.0 -. dice_t_i_f);
+               Float.lerp (float_of_int (o - 1)) (float_of_int (o - 1) +. 0.5) dice_t_i_f *. -0.3
+             )
+           in
+           GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 y;
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.5;
            draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
          done;
          GL.disable GL.Blend;
+         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
          GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
          GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
       | _ -> ()
@@ -585,14 +647,15 @@ let () =
           if Random.float 1.01 > t then
             dice_points.(i) <- Random.int 6
         done
-      ) else if !dice_animation_time >= 1.5 && not !dice_sorted then (
-        sort_sub_dice_array dice_points 0 game.attacking_armies;
-        sort_sub_dice_array dice_points 3 game.defending_armies;
+      ) else if !dice_animation_time >= 1.1 && not !dice_sorted then (
+        sort_dice dice_points dice_order 0 game.attacking_armies;
+        sort_dice dice_points dice_order 3 game.defending_armies;
         dice_sorted := true
       ) else if !dice_animation_time >= 3.0 then (
+        let min_armies = min game.attacking_armies game.defending_armies in
         let atk_i, def_i = game.selected_territory, game.target_territory in
         let atk_dead, def_dead = ref 0, ref 0 in
-        for i = 0 to min game.attacking_armies game.defending_armies - 1 do
+        for i = 0 to min_armies - 1 do
           if dice_points.(i) > dice_points.(i + 3)
           then incr def_dead
           else incr atk_dead
@@ -618,7 +681,10 @@ let () =
           game.current_phase <- Battle_SelectTerritory
         );
         dice_animation_time := 0.0;
-        dice_sorted := false
+        dice_sorted := false;
+        for i = 0 to 4 do
+          dice_order.(i) <- i mod 3
+        done
       )
     );
 

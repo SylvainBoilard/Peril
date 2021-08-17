@@ -5,6 +5,8 @@ module Float =
     include Float
 
     let clamp low high f = max low (min high f)
+
+    let lerp a b t = a +. (b -. a) *. t
   end
 
 module List =
@@ -62,6 +64,20 @@ module Array =
         a.(j) <- tmp
       done
   end
+
+let ease_in x =
+  x *. x *. x
+
+let ease_out x =
+  let x = 1.0 -. x in
+  1.0 -. (x *. x *. x)
+
+let ease_in_out x =
+  if x < 0.5 then
+    x *. x *. x *. 4.0
+  else
+    let x = 1.0 -. x in
+    1.0 -. x *. x *. x *. 4.0
 
 let world_scale = Vec2.{ x = 250.0; y = -250.0 }
 let world_offset = Vec2.{ x = 1.6; y = -1.0 }
