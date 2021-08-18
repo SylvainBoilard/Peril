@@ -296,10 +296,10 @@ let load_battle () =
 
 let make_ui_background () =
   let buffer_data = [|
-       0.5;  0.5;   0.0; 0.0;   0.75; 0.75; 0.75; 0.5;
-      -0.5;  0.5;   0.0; 0.0;   0.75; 0.75; 0.75; 0.5;
-      -0.5; -0.5;   0.0; 0.0;   0.75; 0.75; 0.75; 0.5;
-       0.5; -0.5;   0.0; 0.0;   0.75; 0.75; 0.75; 0.5;
+       0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+      -0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+      -0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+       0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
     |] |> Array1.of_array Float32 C_layout
   in
   let buffer = GL.genBuffer () in
@@ -367,7 +367,7 @@ let () =
     | -1, i | i, _ ->
        let name_text = Text.make text_ctx text_font_serif map.territories.(i).name Regular 16 in
        let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name Black);
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White);
        Text.destroy name_text
     end;
 
@@ -633,7 +633,7 @@ let () =
            (Color.string_of_name game.current_player)
     in
     let status_text = Text.make text_ctx text_font_serif (String.capitalize_ascii status) Regular 16 in
-    Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.rgba_of_name Black);
+    Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.rgba_of_name White);
     Text.destroy status_text;
 
     pulse_animation_time := !pulse_animation_time +. 1.0 /. 120.0;
