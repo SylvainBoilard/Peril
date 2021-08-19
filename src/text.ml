@@ -44,8 +44,8 @@ type font = {
 type t = {
     data_buffer : GL.buffer;
     indices_buffer : GL.buffer;
-    elements_count : int;
-    width : int;
+    mutable elements_count : int;
+    mutable width : int;
   }
 
 let tex_size = 1024
@@ -113,13 +113,16 @@ let load_glyph ctx font index kind size =
   ctx.glyph_max_h <- max ctx.glyph_max_h bitmap.rows;
   glyph_data
 
-let make ctx font str glyph_kind size =
+let create () =
+  { data_buffer = GL.genBuffer ();
+    indices_buffer = GL.genBuffer ();
+    elements_count = 0; width = 0 }
+
+let update ctx text font str glyph_kind size usage =
   FreeType.Face.setCharSize font.face 0 (size lsl 6) 72 72;
-  let data_buffer = GL.genBuffer () in
-  let indices_buffer = GL.genBuffer () in
-  let len = Uutf.String.fold_utf_8 (fun i _ _ -> succ i) 0 str in
-  let text_data = Bigarray.(Array1.create Float32 C_layout (len * 16)) in
-  let indices = Bigarray.(Array1.create Int16_unsigned C_layout (len * 6)) in
+  let str_len = Uutf.String.fold_utf_8 (fun i _ _ -> succ i) 0 str in
+  let text_data = Bigarray.(Array1.create Float32 C_layout (str_len * 16)) in
+  let indices = Bigarray.(Array1.create Int16_unsigned C_layout (str_len * 6)) in
   let push_glyph x i p c =
     let glyph_data =
       try Hashtbl.find font.glyphs (glyph_key c glyph_kind size)
@@ -168,12 +171,12 @@ let make ctx font str glyph_kind size =
        let c = FreeType.Face.getCharIndex font.face (Uchar.to_int u) in
        loop (push_glyph x i p c) (i + 1) c
   in
-  let width = loop 0 0 0 in
-  GL.bindBuffer GL.ArrayBuffer data_buffer;
-  GL.bufferData GL.ArrayBuffer text_data GL.StaticDraw;
-  GL.bindBuffer GL.ElementArrayBuffer indices_buffer;
-  GL.bufferData GL.ElementArrayBuffer indices GL.StaticDraw;
-  { data_buffer; indices_buffer; elements_count = len * 6; width }
+  text.width <- loop 0 0 0;
+  text.elements_count <- str_len * 6;
+  GL.bindBuffer GL.ArrayBuffer text.data_buffer;
+  GL.bufferData GL.ArrayBuffer text_data usage;
+  GL.bindBuffer GL.ElementArrayBuffer text.indices_buffer;
+  GL.bufferData GL.ElementArrayBuffer indices usage
 
 let destroy text =
   GL.deleteBuffer text.data_buffer;

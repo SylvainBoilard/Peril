@@ -334,6 +334,9 @@ let () =
   let text_ctx = Text.init () in
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
+  let name_text = Text.create () in
+  let status_text = Text.create () in
+  let armies_text, armies_outline = Text.create (), Text.create () in
   let game =
     { Game.players = [ Red; Green; Blue ]; current_player = Red; current_phase = Claim;
       reinforcements = 0; selected_territory = -1; target_territory = -1;
@@ -365,10 +368,9 @@ let () =
     begin match Map.find_territory_at_coords map cursor_coords, game.selected_territory with
     | -1, -1 -> ()
     | -1, i | i, _ ->
-       let name_text = Text.make text_ctx text_font_serif map.territories.(i).name Regular 16 in
+       Text.update text_ctx name_text text_font_serif map.territories.(i).name Regular 16 GL.StreamDraw;
        let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White);
-       Text.destroy name_text
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
     end;
 
     if game.selected_territory <> - 1 then (
@@ -412,14 +414,12 @@ let () =
 
       for i = 0 to Array.length map.territories - 1 do
         let armies_str = string_of_int game.armies.(i) in
-        let text = Text.make text_ctx text_font_sans armies_str Regular 20 in
-        let outline = Text.make text_ctx text_font_sans armies_str Outline 20 in
-        let offset = Vec2.{ x = float_of_int (text.width / 2); y = -8.0 } in
+        Text.update text_ctx armies_text text_font_sans armies_str Regular 20 GL.StreamDraw;
+        Text.update text_ctx armies_outline text_font_sans armies_str Outline 20 GL.StreamDraw;
+        let offset = Vec2.{ x = float_of_int (armies_text.width / 2); y = -8.0 } in
         let pos = Vec2.(sub (frame_of_world_coords map.territories.(i).center) offset) in
-        Text.draw text_ctx outline pos (Color.rgba_of_name Black);
-        Text.draw text_ctx text pos (Color.rgba_of_name game.owner.(i));
-        Text.destroy text;
-        Text.destroy outline
+        Text.draw text_ctx armies_outline pos (Color.rgba_of_name Black);
+        Text.draw text_ctx armies_text pos (Color.rgba_of_name game.owner.(i))
       done;
 
       GL.useProgram basic_shader.program;
@@ -632,9 +632,8 @@ let () =
          Printf.sprintf "%s player conquered the world!"
            (Color.string_of_name game.current_player)
     in
-    let status_text = Text.make text_ctx text_font_serif (String.capitalize_ascii status) Regular 16 in
+    Text.update text_ctx status_text text_font_serif (String.capitalize_ascii status) Regular 16 GL.StreamDraw;
     Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.rgba_of_name White);
-    Text.destroy status_text;
 
     pulse_animation_time := !pulse_animation_time +. 1.0 /. 120.0;
     if !pulse_animation_time > 1.0 then pulse_animation_time := 0.0;
@@ -690,5 +689,9 @@ let () =
 
     GLFW.swapBuffers window
   done;
+  Text.destroy name_text;
+  Text.destroy status_text;
+  Text.destroy armies_text;
+  Text.destroy armies_outline;
   GLFW.destroyWindow window;
   GLFW.terminate ()
