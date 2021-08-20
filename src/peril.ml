@@ -335,6 +335,7 @@ let () =
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
   let name_text = Text.create () in
+  let fps_text, fps_outline = Text.create (), Text.create () in
   let status_text = Text.create () in
   let armies_text, armies_outline = Text.create (), Text.create () in
   let game =
@@ -350,6 +351,9 @@ let () =
   let dice_sorted = ref false in
   let pulse_animation_time = ref 0.0 in
   let dice_animation_time = ref 0.0 in
+  let frame_time = ref 0.0 in
+  let frame_time_count = ref 0 in
+  let frame_start_time = ref (GLFW.getTime ()) in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
@@ -687,9 +691,35 @@ let () =
       )
     );
 
-    GLFW.swapBuffers window
+    let fps_count = truncate (float_of_int !frame_time_count /. !frame_time +. 0.5) in
+    let fps_str = Printf.sprintf "%d FPS" fps_count in
+    Text.update text_ctx fps_outline text_font_sans fps_str Outline 10 GL.StreamDraw;
+    Text.update text_ctx fps_text text_font_sans fps_str Regular 10 GL.StreamDraw;
+    let fps_pos = Vec2.{ x = float_of_int (795 - fps_text.width); y = 15.0 } in
+    let fps_color =
+      if fps_count > 57 then
+        Color.White
+      else if fps_count > 50 then
+        Color.Yellow
+      else
+        Color.Red
+    in
+    Text.draw text_ctx fps_outline fps_pos (Color.rgba_of_name Black);
+    Text.draw text_ctx fps_text fps_pos (Color.rgba_of_name fps_color);
+
+    GLFW.swapBuffers window;
+
+    let frame_finish_time = GLFW.getTime () in
+    if !frame_time_count < 10 then (
+      incr frame_time_count;
+      frame_time := !frame_time +. frame_finish_time -. !frame_start_time
+    ) else
+      frame_time := !frame_time *. 0.9 +. frame_finish_time -. !frame_start_time;
+    frame_start_time := frame_finish_time
   done;
   Text.destroy name_text;
+  Text.destroy fps_text;
+  Text.destroy fps_outline;
   Text.destroy status_text;
   Text.destroy armies_text;
   Text.destroy armies_outline;
