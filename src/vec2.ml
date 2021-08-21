@@ -47,3 +47,5 @@ let lerp v1 v2 t =
 let make x y = { x; y }
 
 let of_tuple (x, y) = { x; y }
+
+let round v = { x = Float.round v.x; y = Float.round v.y }

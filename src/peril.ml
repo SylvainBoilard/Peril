@@ -421,7 +421,7 @@ let () =
         Text.update text_ctx armies_text text_font_sans armies_str Regular 20 GL.StreamDraw;
         Text.update text_ctx armies_outline text_font_sans armies_str Outline 20 GL.StreamDraw;
         let offset = Vec2.{ x = float_of_int (armies_text.width / 2); y = -8.0 } in
-        let pos = Vec2.(sub (frame_of_world_coords map.territories.(i).center) offset) in
+        let pos = Vec2.(round (sub (frame_of_world_coords map.territories.(i).center) offset)) in
         Text.draw text_ctx armies_outline pos (Color.rgba_of_name Black);
         Text.draw text_ctx armies_text pos (Color.rgba_of_name game.owner.(i))
       done;
