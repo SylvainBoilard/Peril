@@ -10,7 +10,12 @@
 
 #define CAMLvoid CAMLunused_start value unit CAMLunused_end
 
-#define Val_cptr(p) (assert(((uintptr_t)(p) & 1) == 0), (value)(p) | 1)
+static value Val_cptr(void* p)
+{
+    assert(((uintptr_t)p & 1) == 0);
+    return (value)p | 1;
+}
+
 #define Cptr_val(t, v) ((t)((v) & ~1))
 
 static FT_Library ft_library;
