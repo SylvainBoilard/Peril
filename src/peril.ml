@@ -173,12 +173,17 @@ let mouse_button_callback
      )
   | 0, true, Battle_SelectAttackerCount ->
      let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
-     for i = 1 to useable_armies do
-       if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.3 })) <= 0.128 *. 0.128 then (
-         game.attacking_armies <- i;
-         game.current_phase <- Battle_SelectDefenderCount
-       )
-     done
+     if cursor_coords.x < -0.5 || cursor_coords.x > 0.5 || cursor_coords.y < -0.5 || cursor_coords.y > 0.5 then (
+       update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+       game.target_territory <- -1;
+       game.current_phase <- Battle_SelectTerritory
+     ) else
+       for i = 1 to useable_armies do
+         if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.3 })) <= 0.128 *. 0.128 then (
+           game.attacking_armies <- i;
+           game.current_phase <- Battle_SelectDefenderCount
+         )
+       done
   | 0, true, Battle_SelectDefenderCount ->
      let useable_armies = min 2 game.armies.(game.target_territory) in
      for i = 1 to useable_armies do
