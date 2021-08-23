@@ -411,40 +411,6 @@ let () =
 
     draw_basic basic_shader background_texture background_buffer GL.TriangleFan 0 4;
 
-    begin match Map.find_territory_at_coords map cursor_coords, game.selected_territory with
-    | -1, -1 -> ()
-    | -1, i | i, _ ->
-       Text.update text_ctx name_text text_font_serif map.territories.(i).name Regular 16 GL.StreamDraw;
-       let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
-    end;
-
-    if game.selected_territory <> - 1 then (
-      let coords = map.territories.(game.selected_territory).center in
-      GL.useProgram pulse_shader.program;
-      GL.activeTexture 0;
-      GL.bindTexture GL.Texture2D pulse_texture;
-      GL.uniform2f pulse_shader.vertex_coords_offset_location coords.x coords.y;
-      GL.uniform1i pulse_shader.texture_location 0;
-      GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
-      GL.uniform1f pulse_shader.time_location !pulse_animation_time;
-      GL.enable GL.Blend;
-      GL.bindBuffer GL.ArrayBuffer pulse_buffer;
-      GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
-      GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
-      GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
-      GL.enableVertexAttribArray pulse_shader.vertex_texture_coords_location;
-      GL.drawArrays GL.TriangleFan 0 4;
-      GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
-      GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
-      GL.disable GL.Blend
-    );
-
-    GL.useProgram basic_shader.program;
-    GL.activeTexture 0;
-    GL.uniform1i basic_shader.texture_location 0;
-    GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
-
     if not !edition_mode then (
       if game.selected_territory <> -1 then (
         let dashed_draws = select_dashed_draws game in
@@ -599,6 +565,32 @@ let () =
       | _ -> ()
       end
     ) else (
+      if game.selected_territory <> - 1 then (
+        let coords = map.territories.(game.selected_territory).center in
+        GL.useProgram pulse_shader.program;
+        GL.activeTexture 0;
+        GL.bindTexture GL.Texture2D pulse_texture;
+        GL.uniform2f pulse_shader.vertex_coords_offset_location coords.x coords.y;
+        GL.uniform1i pulse_shader.texture_location 0;
+        GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
+        GL.uniform1f pulse_shader.time_location !pulse_animation_time;
+        GL.enable GL.Blend;
+        GL.bindBuffer GL.ArrayBuffer pulse_buffer;
+        GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
+        GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
+        GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
+        GL.enableVertexAttribArray pulse_shader.vertex_texture_coords_location;
+        GL.drawArrays GL.TriangleFan 0 4;
+        GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
+        GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
+        GL.disable GL.Blend;
+
+        GL.useProgram basic_shader.program;
+        GL.activeTexture 0;
+        GL.uniform1i basic_shader.texture_location 0;
+        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
+      );
+
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
       let _, border_draws =
@@ -681,6 +673,14 @@ let () =
     in
     Text.update text_ctx status_text text_font_serif (String.capitalize_ascii status) Regular 16 GL.StreamDraw;
     Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.rgba_of_name White);
+
+    begin match Map.find_territory_at_coords map cursor_coords, game.selected_territory with
+    | -1, -1 -> ()
+    | -1, i | i, _ ->
+       Text.update text_ctx name_text text_font_serif map.territories.(i).name Regular 16 GL.StreamDraw;
+       let x = float_of_int (400 - name_text.width / 2) in
+       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
+    end;
 
     pulse_animation_time := !pulse_animation_time +. 1.0 /. 120.0;
     if !pulse_animation_time > 1.0 then pulse_animation_time := 0.0;
