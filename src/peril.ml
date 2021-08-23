@@ -38,6 +38,25 @@ let update_selected_territory territory (game : Game.t) dashed_vertex_buffer das
       update_dashed_buffers game dashed_vertex_buffer dashed_elem_buffer
   )
 
+let select_dashed_draws (game : Game.t) =
+  let adjacent = game.map.territories.(game.selected_territory).adjacent in
+  if game.target_territory <> -1 then
+    [ Array.find_offset ((=) game.target_territory) adjacent * 2, 2 ]
+  else if game.current_phase = Battle_SelectTarget then
+    Array.fold_left_i (fun i acc t ->
+        if game.owner.(t) <> game.current_player
+        then (i * 2, 2) :: acc
+        else acc
+      ) [] adjacent
+  else (
+    assert (game.current_phase = Move_SelectDestination);
+    Array.fold_left_i (fun i acc t ->
+        if game.owner.(t) = game.current_player
+        then (i * 2, 2) :: acc
+        else acc
+      ) [] adjacent
+  )
+
 let sort_dice points order offset len =
   let top_i = offset + len in
   let rec aux bot_i max_i max = function
@@ -156,17 +175,29 @@ let mouse_button_callback
          game.current_phase <- Battle_SelectTerritory
      )
   | 0, true, Battle_SelectTerritory ->
-     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1 then (
+     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1
+        && Array.exists (fun i -> game.owner.(i) <> game.current_player) game.map.territories.(clicked_territory).adjacent then (
        update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer;
        game.current_phase <- Battle_SelectTarget
      ) else
        update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer
   | 0, true, Battle_SelectTarget ->
-     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then
-       update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
-     else if clicked_territory <> -1 && Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
-       game.target_territory <- clicked_territory;
-       game.current_phase <- Battle_SelectAttackerCount
+     if clicked_territory <> -1 then (
+       if game.owner.(clicked_territory) = game.current_player then (
+         if game.armies.(clicked_territory) > 1
+            && Array.exists (fun i -> game.owner.(i) <> game.current_player) game.map.territories.(clicked_territory).adjacent then
+           update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
+         else (
+           update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+           game.current_phase <- Battle_SelectTerritory
+         )
+       ) else if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
+         game.target_territory <- clicked_territory;
+         game.current_phase <- Battle_SelectAttackerCount
+       ) else (
+         update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+         game.current_phase <- Battle_SelectTerritory
+       )
      ) else (
        update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
        game.current_phase <- Battle_SelectTerritory
@@ -193,7 +224,8 @@ let mouse_button_callback
        )
      done
   | 0, true, Move_SelectTerritory ->
-     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
+     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1
+        && Array.exists (fun i -> game.owner.(i) = game.current_player) game.map.territories.(clicked_territory).adjacent then (
        update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer;
        game.current_phase <- Move_SelectDestination
      ) else
@@ -203,8 +235,13 @@ let mouse_button_callback
        if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
          game.current_phase <- Move_Move
-       ) else
+       ) else if game.armies.(clicked_territory) > 1
+                 && Array.exists (fun i -> game.owner.(i) = game.current_player) game.map.territories.(clicked_territory).adjacent then
          update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
+       else (
+         update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+         game.current_phase <- Move_SelectTerritory
+       )
      ) else (
        update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
        game.current_phase <- Move_SelectTerritory
@@ -410,12 +447,13 @@ let () =
 
     if not !edition_mode then (
       if game.selected_territory <> -1 then (
+        let dashed_draws = select_dashed_draws game in
         GL.uniform2f basic_shader.texture_coords_offset_location !pulse_animation_time 0.0;
         GL.enable GL.Blend;
         GL.lineWidth 3.0;
-        draw_basic
-          basic_shader dashed_texture dashed_buffer ~elem_buffer:dashed_elem_buffer
-          GL.Lines 0 (Array.length map.territories.(game.selected_territory).adjacent * 2);
+        draw_basic_multi
+          basic_shader dashed_texture dashed_buffer
+          ~elem_buffer:dashed_elem_buffer GL.Lines dashed_draws;
         GL.lineWidth 1.0;
         GL.disable GL.Blend;
         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0

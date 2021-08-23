@@ -27,6 +27,13 @@ module Array =
   struct
     include Array
 
+    let fold_left_i f x a =
+      let r = ref x in
+      for i = 0 to length a - 1 do
+        r := f i !r (unsafe_get a i)
+      done;
+      !r
+
     let for_all_successive_pairs_loop f a =
       let len = length a in
       let rec aux = function
@@ -170,7 +177,7 @@ let draw_basic shader texture buffer ?elem_buffer mode first count =
   | None -> GL.drawArrays mode first count
   | Some elem_buffer ->
      GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-     GL.drawElements mode count GL.UnsignedShort first
+     GL.drawElements mode count GL.UnsignedShort (first * 2)
   end;
   draw_basic_teardown shader
 
@@ -180,7 +187,7 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
   | None -> List.iter (fun (first, count) -> GL.drawArrays mode first count) list
   | Some elem_buffer ->
      GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-     List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort first) list
+     List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort (first * 2)) list
   end;
   draw_basic_teardown shader
 
