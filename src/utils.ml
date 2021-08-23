@@ -1,5 +1,3 @@
-let () = Random.self_init ()
-
 module Float =
   struct
     include Float
@@ -37,8 +35,8 @@ module Array =
     let for_all_successive_pairs_loop f a =
       let len = length a in
       let rec aux = function
-        | i when i + 1 = len -> f a.(i) a.(0)
-        | i when f a.(i) a.(i + 1) -> aux (i + 1)
+        | i when i + 1 = len -> f (unsafe_get a i) (unsafe_get a 0)
+        | i when f (unsafe_get a i) (unsafe_get a (i + 1)) -> aux (i + 1)
         | _ -> false
       in
       len < 2 || aux 0
@@ -47,7 +45,7 @@ module Array =
       let len = length a in
       let rec aux = function
         | i when i = len -> raise Not_found
-        | i when f a.(i) -> i
+        | i when f (unsafe_get a i) -> i
         | i -> aux (i + 1)
       in
       aux 0
@@ -66,9 +64,9 @@ module Array =
     let shuffle a =
       for i = length a - 1 downto 1 do
         let j = Random.int (i + 1) in
-        let tmp = a.(i) in
-        a.(i) <- a.(j);
-        a.(j) <- tmp
+        let tmp = unsafe_get a i in
+        unsafe_set a i (unsafe_get a j);
+        unsafe_set a j tmp
       done
   end
 

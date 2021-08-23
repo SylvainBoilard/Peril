@@ -350,6 +350,7 @@ let make_ui_background () =
   buffer
 
 let () =
+  Random.self_init ();
   let map = Map.load_from_xml_file "maps/Earth.xml" in
   Map.validate map;
   GLFW.init ();
@@ -393,12 +394,12 @@ let () =
   let dice_sorted = ref false in
   let pulse_animation_time = ref 0.0 in
   let dice_animation_time = ref 0.0 in
-  let frame_time = ref 0.0 in
-  let frame_time_count = ref 0 in
-  let frame_start_time = ref (GLFW.getTime ()) in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
+  let frame_time = ref 0.0 in
+  let frame_time_count = ref 0 in
+  let frame_start_time = ref (GLFW.getTime ()) in
   while not (GLFW.windowShouldClose window) do
     GLFW.pollEvents ();
     let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
