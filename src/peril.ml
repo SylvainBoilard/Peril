@@ -293,21 +293,6 @@ let load_dot () =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
-let load_pulse () =
-  let shader = load_pulse_shader () in
-  let texture = load_texture "gfx/pulse.png" in
-  let buffer_data = [|
-       0.128;  0.128;   1.0; 0.0;
-      -0.128;  0.128;   0.0; 0.0;
-      -0.128; -0.128;   0.0; 1.0;
-       0.128; -0.128;   1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  shader, texture, buffer
-
 let load_dice () =
   let texture = load_texture "gfx/dice.png" in
   let buffer_data = [|
@@ -366,7 +351,6 @@ let () =
   let white_texture = load_texture "gfx/pixel.png" in
   let border_buffer = GL.genBuffer () in
   let dot_texture, dot_buffer = load_dot () in
-  let pulse_shader, pulse_texture, pulse_buffer = load_pulse () in
   let dashed_texture = load_texture "gfx/dashed.png" in
   let dashed_buffer = GL.genBuffer () in
   let dashed_elem_buffer = GL.genBuffer () in
@@ -392,7 +376,7 @@ let () =
   let dice_points = Array.make 5 0 in
   let dice_order = Array.init 5 (fun i -> i mod 3) in
   let dice_sorted = ref false in
-  let pulse_animation_time = ref 0.0 in
+  let dashed_animation_time = ref 0.0 in
   let dice_animation_time = ref 0.0 in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
@@ -415,7 +399,7 @@ let () =
     if not !edition_mode then (
       if game.selected_territory <> -1 then (
         let dashed_draws = select_dashed_draws game in
-        GL.uniform2f basic_shader.texture_coords_offset_location !pulse_animation_time 0.0;
+        GL.uniform2f basic_shader.texture_coords_offset_location !dashed_animation_time 0.0;
         GL.enable GL.Blend;
         GL.lineWidth 3.0;
         draw_basic_multi
@@ -566,45 +550,24 @@ let () =
       | _ -> ()
       end
     ) else (
-      if game.selected_territory <> - 1 then (
-        let coords = map.territories.(game.selected_territory).center in
-        GL.useProgram pulse_shader.program;
-        GL.activeTexture 0;
-        GL.bindTexture GL.Texture2D pulse_texture;
-        GL.uniform2f pulse_shader.vertex_coords_offset_location coords.x coords.y;
-        GL.uniform1i pulse_shader.texture_location 0;
-        GL.uniform4f pulse_shader.color_location 1.0 1.0 1.0 0.5;
-        GL.uniform1f pulse_shader.time_location !pulse_animation_time;
-        GL.enable GL.Blend;
-        GL.bindBuffer GL.ArrayBuffer pulse_buffer;
-        GL.vertexAttribPointer pulse_shader.vertex_coords_location 2 GL.Float false 16 0;
-        GL.enableVertexAttribArray pulse_shader.vertex_coords_location;
-        GL.vertexAttribPointer pulse_shader.vertex_texture_coords_location 2 GL.Float false 16 8;
-        GL.enableVertexAttribArray pulse_shader.vertex_texture_coords_location;
-        GL.drawArrays GL.TriangleFan 0 4;
-        GL.disableVertexAttribArray pulse_shader.vertex_texture_coords_location;
-        GL.disableVertexAttribArray pulse_shader.vertex_coords_location;
-        GL.disable GL.Blend;
-
-        GL.useProgram basic_shader.program;
-        GL.activeTexture 0;
-        GL.uniform1i basic_shader.texture_location 0;
-        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
-      );
-
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
       let _, border_draws =
         Array.fold_left (fun (i, l) (t : Map.territory) ->
+            let lum =
+              if game.selected_territory <> -1 && game.map.territories.(game.selected_territory) == t
+              then 1.0
+              else 0.0
+            in
             Array.fold_left (fun i (v : Vec2.t) ->
                 let offset = i * 8 in
                 border_data.{offset} <- v.x;
                 border_data.{offset + 1} <- v.y;
                 border_data.{offset + 2} <- 0.0;
                 border_data.{offset + 3} <- 0.0;
-                border_data.{offset + 4} <- 0.0;
-                border_data.{offset + 5} <- 0.0;
-                border_data.{offset + 6} <- 0.0;
+                border_data.{offset + 4} <- lum;
+                border_data.{offset + 5} <- lum;
+                border_data.{offset + 6} <- lum;
                 border_data.{offset + 7} <- 1.0;
                 i + 1
               ) i t.shape, (i, Array.length t.shape) :: l
@@ -683,8 +646,14 @@ let () =
        Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
     end;
 
-    pulse_animation_time := !pulse_animation_time +. 1.0 /. 120.0;
-    if !pulse_animation_time > 1.0 then pulse_animation_time := 0.0;
+    if game.selected_territory <> -1 then (
+      if game.target_territory = -1 then
+        dashed_animation_time := !dashed_animation_time +. 1.0 /. 120.0
+      else
+        dashed_animation_time := !dashed_animation_time +. 1.0 /. 40.0;
+      if !dashed_animation_time >= 1.0 then
+        dashed_animation_time := !dashed_animation_time -. 1.0
+    );
 
     if game.current_phase = Battle_Resolving then (
       dice_animation_time := !dice_animation_time +. 1.0 /. 60.0;

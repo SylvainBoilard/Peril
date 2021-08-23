@@ -189,27 +189,6 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
   end;
   draw_basic_teardown shader
 
-type pulse_shader = {
-    program: GL.program;
-    vertex_coords_location: GL.attrib_location;
-    vertex_texture_coords_location: GL.attrib_location;
-    vertex_coords_offset_location: GL.uniform_location;
-    texture_location: GL.uniform_location;
-    color_location: GL.uniform_location;
-    time_location: GL.uniform_location;
-  }
-
-let load_pulse_shader () =
-  let program = load_program "shaders" "pulse" in
-  let vertex_coords_location = GL.getAttribLocation program "VertexCoords" in
-  let vertex_texture_coords_location = GL.getAttribLocation program "VertexTextureCoords" in
-  let vertex_coords_offset_location = GL.getUniformLocation program "VertexCoordsOffset" in
-  let texture_location = GL.getUniformLocation program "Texture" in
-  let color_location = GL.getUniformLocation program "Color" in
-  let time_location = GL.getUniformLocation program "Time" in
-  { program; vertex_coords_location; vertex_texture_coords_location;
-    vertex_coords_offset_location; texture_location; color_location; time_location }
-
 let load_texture filename =
   let open Bigarray in
   let image = ImageLib_unix.openfile filename in
