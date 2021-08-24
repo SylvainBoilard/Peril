@@ -34,7 +34,7 @@ let update_dashed_buffers (game : Game.t) vertex_buffer elem_buffer =
 let update_selected_territory territory (game : Game.t) dashed_vertex_buffer dashed_elem_buffer =
   if territory <> game.selected_territory then (
     game.selected_territory <- territory;
-    if territory <> - 1 then
+    if territory <> -1 then
       update_dashed_buffers game dashed_vertex_buffer dashed_elem_buffer
   )
 
@@ -75,6 +75,15 @@ let sort_dice points order offset len =
   in
   if len >= 2 then
     aux offset offset points.(offset) (offset + 1)
+
+let need_to_animate_dice (game : Game.t) dice_order =
+  game.attacking_armies <> game.defending_armies ||
+    let dice_moves = ref false in
+    for i = 0 to game.attacking_armies - 1 do
+      if dice_order.(i) <> i || dice_order.(i + 3) <> i then
+        dice_moves := true
+    done;
+    !dice_moves
 
 let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
@@ -663,9 +672,11 @@ let () =
           if Random.float 1.01 > t then
             dice_points.(i) <- Random.int 6
         done
-      ) else if !dice_animation_time >= 1.1 && not !dice_sorted then (
+      ) else if not !dice_sorted then (
         sort_dice dice_points dice_order 0 game.attacking_armies;
         sort_dice dice_points dice_order 3 game.defending_armies;
+        if not (need_to_animate_dice game dice_order) then
+          dice_animation_time := 1.2;
         dice_sorted := true
       ) else if !dice_animation_time >= 3.0 then (
         let min_armies = min game.attacking_armies game.defending_armies in
