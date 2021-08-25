@@ -4,57 +4,11 @@ open Bigarray
 let edition_mode = ref false
 let selected_poi = ref Map.NoPOI
 
-let update_dashed_buffers (game : Game.t) vertex_buffer elem_buffer =
-  let territory = game.map.territories.(game.selected_territory) in
-  let adj_count = Array.length territory.adjacent in
-  let center = territory.center in
-  let vertex_data = Array1.create Float32 C_layout ((adj_count + 1) * 8) in
-  let sub_0 = Array1.sub vertex_data 0 8 in
-  [| center.x; center.y; 0.0; 0.0; 1.0; 1.0; 1.0; 1.0 |]
-  |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub_0;
-  Array.iteri (fun i a ->
-      let t = game.map.territories.(a) in
-      let sub = Array1.sub vertex_data ((i + 1) * 8) 8 in
-      let target = t.center in
-      let dist = Vec2.(mag (sub center target)) in
-      [| target.x; target.y; dist *. -8.0; 0.0; 0.5; 0.5; 0.5; 1.0 |]
-      |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
-    ) territory.adjacent;
-  let elem_data = Array1.create Int16_unsigned C_layout (adj_count * 2) in
-  for i = 0 to adj_count - 1 do
-    let offset = i * 2 in
-    elem_data.{offset} <- 0;
-    elem_data.{offset + 1} <- i + 1
-  done;
-  GL.bindBuffer GL.ArrayBuffer vertex_buffer;
-  GL.bufferData GL.ArrayBuffer vertex_data GL.DynamicDraw;
-  GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-  GL.bufferData GL.ElementArrayBuffer elem_data GL.DynamicDraw
-
-let update_selected_territory territory (game : Game.t) dashed_vertex_buffer dashed_elem_buffer =
+let update_selected_territory territory (game : Game.t) render =
   if territory <> game.selected_territory then (
     game.selected_territory <- territory;
     if territory <> -1 then
-      update_dashed_buffers game dashed_vertex_buffer dashed_elem_buffer
-  )
-
-let select_dashed_draws (game : Game.t) =
-  let adjacent = game.map.territories.(game.selected_territory).adjacent in
-  if game.target_territory <> -1 then
-    [ Array.find_offset ((=) game.target_territory) adjacent * 2, 2 ]
-  else if game.current_phase = Battle_SelectTarget then
-    Array.fold_left_i (fun i acc t ->
-        if game.owner.(t) <> game.current_player
-        then (i * 2, 2) :: acc
-        else acc
-      ) [] adjacent
-  else (
-    assert (game.current_phase = Move_SelectDestination);
-    Array.fold_left_i (fun i acc t ->
-        if game.owner.(t) = game.current_player
-        then (i * 2, 2) :: acc
-        else acc
-      ) [] adjacent
+      Render.update_dashed_buffers render game.map.territories territory
   )
 
 let sort_dice points order offset len =
@@ -123,16 +77,14 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      game.current_phase <- Reinforce
   | _ -> ()
 
-let mouse_button_callback
-      (game : Game.t) dashed_vertex_buffer dashed_elems_buffer
-      window button pressed _(*modifiers*) =
+let mouse_button_callback (game : Game.t) render window button pressed _(*modifiers*) =
   let cursor_pos = Vec2.of_tuple (GLFW.getCursorPos window) in
   let cursor_coords = world_of_frame_coords cursor_pos in
   let clicked_territory = Map.find_territory_at_coords game.map cursor_coords in
   match button, pressed, game.current_phase with
   | 0, true, _ when !edition_mode ->
      if game.selected_territory = -1 then
-       update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
+       update_selected_territory clicked_territory game render
      else (
        let st = game.map.territories.(game.selected_territory) in
        selected_poi := Map.find_poi_of_shape_at_coords st.shape cursor_coords;
@@ -157,7 +109,7 @@ let mouse_button_callback
           let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
           GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
           GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
-       | NoPOI -> update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
+       | NoPOI -> update_selected_territory clicked_territory game render
      )
   | 0, true, Claim ->
      if clicked_territory <> -1 && game.armies.(clicked_territory) = 0 then (
@@ -186,35 +138,35 @@ let mouse_button_callback
   | 0, true, Battle_SelectTerritory ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1
         && Array.exists (fun i -> game.owner.(i) <> game.current_player) game.map.territories.(clicked_territory).adjacent then (
-       update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer;
+       update_selected_territory clicked_territory game render;
        game.current_phase <- Battle_SelectTarget
      ) else
-       update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer
+       update_selected_territory (-1) game render
   | 0, true, Battle_SelectTarget ->
      if clicked_territory <> -1 then (
        if game.owner.(clicked_territory) = game.current_player then (
          if game.armies.(clicked_territory) > 1
             && Array.exists (fun i -> game.owner.(i) <> game.current_player) game.map.territories.(clicked_territory).adjacent then
-           update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
+           update_selected_territory clicked_territory game render
          else (
-           update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+           update_selected_territory (-1) game render;
            game.current_phase <- Battle_SelectTerritory
          )
        ) else if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
          game.current_phase <- Battle_SelectAttackerCount
        ) else (
-         update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+         update_selected_territory (-1) game render;
          game.current_phase <- Battle_SelectTerritory
        )
      ) else (
-       update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+       update_selected_territory (-1) game render;
        game.current_phase <- Battle_SelectTerritory
      )
   | 0, true, Battle_SelectAttackerCount ->
      let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
      if cursor_coords.x < -0.5 || cursor_coords.x > 0.5 || cursor_coords.y < -0.5 || cursor_coords.y > 0.5 then (
-       update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+       update_selected_territory (-1) game render;
        game.target_territory <- -1;
        game.current_phase <- Battle_SelectTerritory
      ) else
@@ -235,10 +187,10 @@ let mouse_button_callback
   | 0, true, Move_SelectTerritory ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1
         && Array.exists (fun i -> game.owner.(i) = game.current_player) game.map.territories.(clicked_territory).adjacent then (
-       update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer;
+       update_selected_territory clicked_territory game render;
        game.current_phase <- Move_SelectDestination
      ) else
-       update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer
+       update_selected_territory (-1) game render
   | 0, true, Move_SelectDestination ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
        if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
@@ -246,13 +198,13 @@ let mouse_button_callback
          game.current_phase <- Move_Move
        ) else if game.armies.(clicked_territory) > 1
                  && Array.exists (fun i -> game.owner.(i) = game.current_player) game.map.territories.(clicked_territory).adjacent then
-         update_selected_territory clicked_territory game dashed_vertex_buffer dashed_elems_buffer
+         update_selected_territory clicked_territory game render
        else (
-         update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+         update_selected_territory (-1) game render;
          game.current_phase <- Move_SelectTerritory
        )
      ) else (
-       update_selected_territory (-1) game dashed_vertex_buffer dashed_elems_buffer;
+       update_selected_territory (-1) game render;
        game.current_phase <- Move_SelectTerritory
      )
   | 0, true, (Battle_Invade | Move_Move) ->
@@ -274,75 +226,6 @@ let cursor_pos_callback (game : Game.t) _(*window*) x y =
     | _ -> ()
   )
 
-let load_background filename =
-  let texture = load_texture filename in
-  let buffer_data = [|
-       1.6;  1.0;   1.0; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -1.6;  1.0;   0.0; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -1.6; -1.0;   0.0; 1.0;   1.0; 1.0; 1.0; 1.0;
-       1.6; -1.0;   1.0; 1.0;   1.0; 1.0; 1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  texture, buffer
-
-let load_dot () =
-  let texture = load_texture "gfx/dot.png" in
-  let buffer_data = [|
-       0.016;  0.016;   1.0; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.016;  0.016;   0.0; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.016; -0.016;   0.0; 1.0;   1.0; 1.0; 1.0; 1.0;
-       0.016; -0.016;   1.0; 1.0;   1.0; 1.0; 1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  texture, buffer
-
-let load_dice () =
-  let texture = load_texture "gfx/dice.png" in
-  let buffer_data = [|
-       0.128;  0.128;   0.125; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128;  0.128;   0.0  ; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128; -0.128;   0.0  ; 0.5;   1.0; 1.0; 1.0; 1.0;
-       0.128; -0.128;   0.125; 0.5;   1.0; 1.0; 1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  texture, buffer
-
-let load_battle () =
-  let texture = load_texture "gfx/battle.png" in
-  let buffer_data = [|
-       0.128;  0.128;   0.25; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128;  0.128;   0.0 ; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128; -0.128;   0.0 ; 0.5;   1.0; 1.0; 1.0; 1.0;
-       0.128; -0.128;   0.25; 0.5;   1.0; 1.0; 1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  texture, buffer
-
-let make_ui_background () =
-  let buffer_data = [|
-       0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-      -0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-      -0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-       0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  buffer
-
 let () =
   Random.self_init ();
   let map = Map.load_from_xml_file "maps/Earth.xml" in
@@ -356,17 +239,7 @@ let () =
   GLFW.makeContextCurrent (Some window);
   GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
   let basic_shader = load_basic_shader () in
-  let background_texture, background_buffer = load_background ("maps/" ^ map.background) in
-  let white_texture = load_texture "gfx/pixel.png" in
-  let border_buffer = GL.genBuffer () in
-  let dot_texture, dot_buffer = load_dot () in
-  let dashed_texture = load_texture "gfx/dashed.png" in
-  let dashed_buffer = GL.genBuffer () in
-  let dashed_elem_buffer = GL.genBuffer () in
-  let dice_texture, dice_buffer = load_dice () in
-  let battle_texture, battle_buffer = load_battle () in
-  let arrow_buffer = GL.genBuffer () in
-  let ui_background_buffer = make_ui_background () in
+  let render = Render.make ("maps/" ^ map.background) in
   let text_ctx = Text.init () in
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
@@ -388,7 +261,7 @@ let () =
   let dashed_animation_time = ref 0.0 in
   let dice_animation_time = ref 0.0 in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
-  GLFW.setMouseButtonCallback window (Some (mouse_button_callback game dashed_buffer dashed_elem_buffer)) |> ignore;
+  GLFW.setMouseButtonCallback window (Some (mouse_button_callback game render)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
   let frame_time = ref 0.0 in
   let frame_time_count = ref 0 in
@@ -403,17 +276,24 @@ let () =
     GL.uniform1i basic_shader.texture_location 0;
     GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
-    draw_basic basic_shader background_texture background_buffer GL.TriangleFan 0 4;
+    Render.draw_basic basic_shader render.background_texture render.background_buffer GL.TriangleFan 0 4;
 
     if not !edition_mode then (
       if game.selected_territory <> -1 then (
-        let dashed_draws = select_dashed_draws game in
+        let filter = match game.current_phase with
+          | _ when game.target_territory <> -1 -> (=) game.target_territory
+          | Battle_SelectTarget -> fun i -> game.owner.(i) <> game.current_player
+          | Move_SelectDestination -> fun i -> game.owner.(i) = game.current_player
+          | _ -> assert false
+        in
+        let adjacent = game.map.territories.(game.selected_territory).adjacent in
+        let dashed_draws = Render.select_dashed_draws filter adjacent in
         GL.uniform2f basic_shader.texture_coords_offset_location !dashed_animation_time 0.0;
         GL.enable GL.Blend;
         GL.lineWidth 3.0;
-        draw_basic_multi
-          basic_shader dashed_texture dashed_buffer
-          ~elem_buffer:dashed_elem_buffer GL.Lines dashed_draws;
+        Render.draw_basic_multi
+          basic_shader render.dashed_texture render.dashed_buffer
+          ~elem_buffer:render.dashed_elem_buffer GL.Lines dashed_draws;
         GL.lineWidth 1.0;
         GL.disable GL.Blend;
         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
@@ -434,10 +314,10 @@ let () =
       GL.uniform1i basic_shader.texture_location 0;
       GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
+      GL.enable GL.Blend;
       begin match game.current_phase with
       | Battle_SelectAttackerCount ->
-         GL.enable GL.Blend;
-         draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
+         Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
          let c = Color.hsla_of_name game.owner.(game.selected_territory) in
          let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
          for i = 0 to 2 do
@@ -453,20 +333,15 @@ let () =
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 (float_of_int (i - 1) *. 0.3);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.0;
-           draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
-         done;
-         GL.disable GL.Blend;
-         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-         GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
-         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
+           Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4
+         done
       | Battle_SelectDefenderCount ->
-         GL.enable GL.Blend;
-         draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
+         Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
          let c = Color.rgba_of_name game.owner.(game.selected_territory) in
          GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.25) 0.0;
-         draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4;
+         Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4;
          let c = Color.hsla_of_name game.owner.(game.target_territory) in
          let useable_armies = min 2 game.armies.(game.target_territory) in
          for i = 0 to 1 do
@@ -482,13 +357,10 @@ let () =
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.15);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.5;
-           draw_basic basic_shader battle_texture battle_buffer GL.TriangleFan 0 4
-         done;
-         GL.disable GL.Blend;
-         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-         GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
-         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0
+           Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4
+         done
       | Battle_Resolving ->
+         Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
          let dice_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.1) *. 2.0) in
          let dice_t_io = ease_in_out dice_t in
          let dice_t_i_f = ease_in (min 1.0 (dice_t *. 2.0)) in
@@ -496,8 +368,6 @@ let () =
          let arrow_t_io = ease_in_out arrow_t in
          let arrow_t_i_f = ease_in (min 1.0 (arrow_t *. 3.0)) in
          let min_armies = min game.attacking_armies game.defending_armies in
-         GL.enable GL.Blend;
-         draw_basic basic_shader white_texture ui_background_buffer GL.TriangleFan 0 4;
          for i = 0 to min_armies - 1 do
            let x = Float.lerp (-0.172) 0.140 arrow_t_io in
            let y = float_of_int (i - 1) *. -0.3 in
@@ -518,9 +388,9 @@ let () =
                       0.172     ; y -. 0.032;   0.75   ; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
                       0.172     ; y +. 0.032;   0.75   ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f |]
            in
-           GL.bindBuffer GL.ArrayBuffer arrow_buffer;
+           GL.bindBuffer GL.ArrayBuffer render.arrow_buffer;
            GL.bufferData GL.ArrayBuffer buffer_data GL.DynamicDraw;
-           draw_basic basic_shader battle_texture arrow_buffer GL.TriangleFan 0 6
+           Render.draw_basic basic_shader render.battle_texture render.arrow_buffer GL.TriangleFan 0 6
          done;
          for i = 0 to game.attacking_armies - 1 do
            let o = dice_order.(i) in
@@ -535,7 +405,7 @@ let () =
            in
            GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) y;
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
-           draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
+           Render.draw_basic basic_shader render.dice_texture render.dice_buffer GL.TriangleFan 0 4
          done;
          for i = 0 to game.defending_armies - 1 do
            let o = dice_order.(i + 3) in
@@ -550,14 +420,14 @@ let () =
            in
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 y;
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.5;
-           draw_basic basic_shader dice_texture dice_buffer GL.TriangleFan 0 4
-         done;
-         GL.disable GL.Blend;
-         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
-         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-         GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
+           Render.draw_basic basic_shader render.dice_texture render.dice_buffer GL.TriangleFan 0 4
+         done
       | _ -> ()
-      end
+      end;
+      GL.disable GL.Blend;
+      GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
+      GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
+      GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
     ) else (
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
@@ -582,9 +452,9 @@ let () =
               ) i t.shape, (i, Array.length t.shape) :: l
           ) (0, []) map.territories
       in
-      GL.bindBuffer GL.ArrayBuffer border_buffer;
+      GL.bindBuffer GL.ArrayBuffer render.border_buffer;
       GL.bufferData GL.ArrayBuffer border_data GL.StreamDraw;
-      draw_basic_multi basic_shader white_texture border_buffer GL.LineLoop border_draws;
+      Render.draw_basic_multi basic_shader render.white_texture render.border_buffer GL.LineLoop border_draws;
 
       if game.selected_territory <> -1 && !selected_poi = NoPOI then (
         let selected_territory_shape = map.territories.(game.selected_territory).shape in
@@ -597,7 +467,7 @@ let () =
         | Some coords ->
            GL.uniform2f basic_shader.vertex_coords_offset_location coords.x coords.y;
            GL.enable GL.Blend;
-           draw_basic basic_shader dot_texture dot_buffer GL.TriangleFan 0 4;
+           Render.draw_basic basic_shader render.dot_texture render.dot_buffer GL.TriangleFan 0 4;
            GL.disable GL.Blend;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
         | None -> ()

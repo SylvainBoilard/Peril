@@ -154,41 +154,6 @@ let load_basic_shader () =
   { program; vertex_coords_location; vertex_texture_coords_location; vertex_color_location;
     texture_location; vertex_coords_offset_location; texture_coords_offset_location; ambient_color_location }
 
-let draw_basic_prepare shader texture buffer =
-  GL.bindTexture GL.Texture2D texture;
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.vertexAttribPointer shader.vertex_coords_location 2 GL.Float false 32 0;
-  GL.enableVertexAttribArray shader.vertex_coords_location;
-  GL.vertexAttribPointer shader.vertex_texture_coords_location 2 GL.Float false 32 8;
-  GL.enableVertexAttribArray shader.vertex_texture_coords_location;
-  GL.vertexAttribPointer shader.vertex_color_location 4 GL.Float false 32 16;
-  GL.enableVertexAttribArray shader.vertex_color_location
-
-let draw_basic_teardown shader =
-  GL.disableVertexAttribArray shader.vertex_color_location;
-  GL.disableVertexAttribArray shader.vertex_texture_coords_location;
-  GL.disableVertexAttribArray shader.vertex_coords_location
-
-let draw_basic shader texture buffer ?elem_buffer mode first count =
-  draw_basic_prepare shader texture buffer;
-  begin match elem_buffer with
-  | None -> GL.drawArrays mode first count
-  | Some elem_buffer ->
-     GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-     GL.drawElements mode count GL.UnsignedShort (first * 2)
-  end;
-  draw_basic_teardown shader
-
-let draw_basic_multi shader texture buffer ?elem_buffer mode list =
-  draw_basic_prepare shader texture buffer;
-  begin match elem_buffer with
-  | None -> List.iter (fun (first, count) -> GL.drawArrays mode first count) list
-  | Some elem_buffer ->
-     GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-     List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort (first * 2)) list
-  end;
-  draw_basic_teardown shader
-
 let load_texture filename =
   let open Bigarray in
   let image = ImageLib_unix.openfile filename in
