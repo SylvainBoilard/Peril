@@ -51,17 +51,21 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      Map.validate game.map;
      Map.save_to_xml_file game.map "maps/Earth.xml"
   | F6, Press, (Claim | Deploy) -> (* DEBUG: skip claim and deploy phases *)
-     for i = 0 to Array.length game.armies - 1 do
+     let territory_count = Array.length game.map.territories in
+     let player_count = Array.length game.players in
+     for i = 0 to territory_count - 1 do
        game.armies.(i) <- if i < 21 then 2 else 3;
-       game.owner.(i) <- List.(nth game.players (i mod length game.players))
+       game.owner.(i) <- i mod player_count
      done;
      let random_state = Random.get_state () in
      Array.shuffle game.armies;
      Random.set_state random_state;
      Array.shuffle game.owner;
-     game.current_player <- List.hd game.players;
-     game.reinforcements <- Game.compute_reinforcements game game.current_player;
-     game.current_phase <- Reinforce
+     for i = 0 to player_count - 1 do
+       Game.compute_reinforcements game i
+     done;
+     game.current_player <- -1;
+     Game.start_next_player_turn game
   | Space, Press, Battle_SelectTerritory ->
      game.selected_territory <- -1;
      game.current_phase <- Move_SelectTerritory
@@ -70,11 +74,7 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      game.target_territory <- -1;
      game.current_phase <- Battle_SelectTerritory
   | Space, Press, (Move_SelectTerritory | Move_Move) ->
-     game.selected_territory <- -1;
-     game.target_territory <- -1;
-     game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
-     game.reinforcements <- Game.compute_reinforcements game game.current_player;
-     game.current_phase <- Reinforce
+     Game.start_next_player_turn game
   | _ -> ()
 
 let mouse_button_callback (game : Game.t) render window button pressed _(*modifiers*) =
@@ -115,24 +115,27 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
      if clicked_territory <> -1 && game.armies.(clicked_territory) = 0 then (
        game.armies.(clicked_territory) <- 1;
        game.owner.(clicked_territory) <- game.current_player;
-       game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
+       game.current_player <- (game.current_player + 1) mod Array.length game.players;
        if Array.for_all ((<>) 0) game.armies then
          game.current_phase <- Deploy
      )
   | 0, true, Deploy ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
+       let player_count = Array.length game.players in
        game.armies.(clicked_territory) <- game.armies.(clicked_territory) + 1;
-       game.current_player <- List.find_next_loop ((=) game.current_player) game.players;
        if Array.fold_left (+) 0 game.armies = 105 then (
-         game.reinforcements <- Game.compute_reinforcements game game.current_player;
-         game.current_phase <- Reinforce
-       )
+         for i = 0 to player_count - 1 do
+           Game.compute_reinforcements game i
+         done;
+         Game.start_next_player_turn game
+       ) else
+         game.current_player <- (game.current_player + 1) mod Array.length game.players
      )
   | 0, true, Reinforce ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
        game.armies.(clicked_territory) <- game.armies.(clicked_territory) + 1;
-       game.reinforcements <- game.reinforcements - 1;
-       if game.reinforcements = 0 then
+       game.armies_to_deploy <- game.armies_to_deploy - 1;
+       if game.armies_to_deploy = 0 then
          game.current_phase <- Battle_SelectTerritory
      )
   | 0, true, Battle_SelectTerritory ->
@@ -243,17 +246,23 @@ let () =
   let text_ctx = Text.init () in
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
-  let name_text = Text.create () in
+  let territory_text = Text.create () in
   let fps_text, fps_outline = Text.create (), Text.create () in
   let status_text = Text.create () in
+  let name_text, name_outline = Text.create (), Text.create () in
   let armies_text, armies_outline = Text.create (), Text.create () in
   let game =
-    { Game.players = [ Red; Green; Blue ]; current_player = Red; current_phase = Claim;
-      reinforcements = 0; selected_territory = -1; target_territory = -1;
+    let territory_count = Array.length map.territories in
+    { Game.players =
+        [| { name = "Roland"; color = Color.hsla_of_name Red; defeated = false; reinforcements = 0 };
+           { name = "Valérie"; color = Color.hsla_of_name Green; defeated = false; reinforcements = 0 };
+           { name = "Basile"; color = Color.hsla_of_name Blue; defeated = false; reinforcements = 0 } |];
+      current_player = 0; current_phase = Claim;
+      selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
       attacking_armies = 0; defending_armies = 0;
       map;
-      owner = Array.make (Array.length map.territories) Color.White;
-      armies = Array.make (Array.length map.territories) 0 }
+      owner = Array.make territory_count (-1);
+      armies = Array.make territory_count 0 }
   in
   let dice_points = Array.make 5 0 in
   let dice_order = Array.init 5 (fun i -> i mod 3) in
@@ -301,12 +310,18 @@ let () =
 
       for i = 0 to Array.length map.territories - 1 do
         let armies_str = string_of_int game.armies.(i) in
+        let owner = game.owner.(i) in
+        let color =
+          if owner <> -1
+          then Color.rgba_of_hsla game.players.(owner).color
+          else Color.rgba_of_name White
+        in
         Text.update text_ctx armies_text text_font_sans armies_str Regular 20 GL.StreamDraw;
         Text.update text_ctx armies_outline text_font_sans armies_str Outline 20 GL.StreamDraw;
         let offset = Vec2.{ x = float_of_int (armies_text.width / 2); y = -8.0 } in
         let pos = Vec2.(round (sub (frame_of_world_coords map.territories.(i).center) offset)) in
         Text.draw text_ctx armies_outline pos (Color.rgba_of_name Black);
-        Text.draw text_ctx armies_text pos (Color.rgba_of_name game.owner.(i))
+        Text.draw text_ctx armies_text pos color
       done;
 
       GL.useProgram basic_shader.program;
@@ -318,7 +333,7 @@ let () =
       begin match game.current_phase with
       | Battle_SelectAttackerCount ->
          Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
-         let c = Color.hsla_of_name game.owner.(game.selected_territory) in
+         let c = game.players.(game.owner.(game.selected_territory)).color in
          let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
          for i = 0 to 2 do
            let c =
@@ -337,12 +352,12 @@ let () =
          done
       | Battle_SelectDefenderCount ->
          Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
-         let c = Color.rgba_of_name game.owner.(game.selected_territory) in
+         let c = Color.rgba_of_hsla game.players.(game.owner.(game.selected_territory)).color in
          GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.25) 0.0;
          Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4;
-         let c = Color.hsla_of_name game.owner.(game.target_territory) in
+         let c = game.players.(game.owner.(game.target_territory)).color in
          let useable_armies = min 2 game.armies.(game.target_territory) in
          for i = 0 to 1 do
            let c =
@@ -474,55 +489,49 @@ let () =
       )
     );
 
+    let name_color, name = match game.current_phase with
+      | _ when !edition_mode -> Color.(rgba_of_name White), ""
+      | Battle_SelectDefenderCount ->
+         let player = game.players.(game.owner.(game.target_territory)) in
+         Color.rgba_of_hsla player.color, player.name
+      | Battle_Resolving -> Color.(rgba_of_name White), ""
+      | _ ->
+         let player = game.players.(game.current_player) in
+         Color.rgba_of_hsla player.color, player.name
+    in
     let status = match game.current_phase with
       | _ when !edition_mode -> "Edition"
-      | Claim ->
-         Printf.sprintf "%s player, claim an empty territory"
-           (Color.string_of_name game.current_player)
+      | Claim -> ", claim an empty territory"
       | Deploy ->
-         Printf.sprintf "%s player, deploy an army on one of your territories (you have %d remaining)"
-           (Color.string_of_name game.current_player) ((105 - Array.fold_left (+) (-2) game.armies) / 3)
+         Printf.sprintf ", deploy an army on one of your territories (you have %d remaining)"
+           ((105 - Array.fold_left (+) (-2) game.armies) / 3)
       | Reinforce ->
-         Printf.sprintf "%s player, deploy an army on one of your territories (you have %d remaining)"
-           (Color.string_of_name game.current_player) game.reinforcements
-      | Battle_SelectTerritory ->
-         Printf.sprintf "%s player, select a territory from which to attack, or press Space to pass"
-           (Color.string_of_name game.current_player)
-      | Battle_SelectTarget ->
-         Printf.sprintf "%s player, select the territory to attack"
-           (Color.string_of_name game.current_player)
-      | Battle_SelectAttackerCount ->
-         Printf.sprintf "%s player, select the number of armies to attack with"
-           (Color.string_of_name game.current_player)
-      | Battle_SelectDefenderCount ->
-         Printf.sprintf "%s player, select the number of armies to defend with"
-           (Color.string_of_name game.owner.(game.target_territory))
+         Printf.sprintf ", deploy an army on one of your territories (you have %d remaining)"
+           game.armies_to_deploy
+      | Battle_SelectTerritory -> ", select a territory from which to attack, or press Space to pass"
+      | Battle_SelectTarget -> ", select the territory to attack"
+      | Battle_SelectAttackerCount -> ", select the number of armies to attack with"
+      | Battle_SelectDefenderCount -> ", select the number of armies to defend with"
       | Battle_Resolving -> "Battle rages..."
-      | Battle_Invade ->
-         Printf.sprintf "%s player, invade the territory you captured with more armies, or press Space to pass"
-           (Color.string_of_name game.current_player)
-      | Move_SelectTerritory ->
-         Printf.sprintf "%s player, select a territory from which to move armies, or press Space to pass"
-           (Color.string_of_name game.current_player)
-      | Move_SelectDestination ->
-         Printf.sprintf "%s player, select the territory to send your armies to"
-           (Color.string_of_name game.current_player)
-      | Move_Move ->
-         Printf.sprintf "%s player, move more armies to this territory, or press Space to pass"
-           (Color.string_of_name game.current_player)
-      | Over ->
-         Printf.sprintf "%s player conquered the world!"
-           (Color.string_of_name game.current_player)
+      | Battle_Invade -> ", invade the territory you captured with more armies, or press Space to pass"
+      | Move_SelectTerritory -> ", select a territory from which to move armies, or press Space to pass"
+      | Move_SelectDestination -> ", select the territory to send your armies to"
+      | Move_Move -> ", move more armies to this territory, or press Space to pass"
+      | Over -> " conquered the world!"
     in
-    Text.update text_ctx status_text text_font_serif (String.capitalize_ascii status) Regular 16 GL.StreamDraw;
-    Text.draw text_ctx status_text { x = 10.0; y = 26.0 } (Color.rgba_of_name White);
+    Text.update text_ctx name_outline text_font_serif name Outline 16 GL.StreamDraw;
+    Text.update text_ctx name_text text_font_serif name Regular 16 GL.StreamDraw;
+    Text.update text_ctx status_text text_font_serif status Regular 16 GL.StreamDraw;
+    Text.draw text_ctx name_outline { x = 10.0; y = 26.0 } (Color.rgba_of_name Black);
+    Text.draw text_ctx name_text { x = 10.0; y = 26.0 } name_color;
+    Text.draw text_ctx status_text { x = float_of_int (10 + name_text.width); y = 26.0 } (Color.rgba_of_name White);
 
     begin match Map.find_territory_at_coords map cursor_coords, game.selected_territory with
     | -1, -1 -> ()
     | -1, i | i, _ ->
-       Text.update text_ctx name_text text_font_serif map.territories.(i).name Regular 16 GL.StreamDraw;
-       let x = float_of_int (400 - name_text.width / 2) in
-       Text.draw text_ctx name_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
+       Text.update text_ctx territory_text text_font_serif map.territories.(i).name Regular 16 GL.StreamDraw;
+       let x = float_of_int (400 - territory_text.width / 2) in
+       Text.draw text_ctx territory_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
     end;
 
     if game.selected_territory <> -1 then (
@@ -563,9 +572,11 @@ let () =
           game.armies.(atk_i) <- game.armies.(atk_i) - game.attacking_armies;
           game.armies.(def_i) <- game.attacking_armies - !atk_dead;
           game.owner.(def_i) <- game.current_player;
+          Game.compute_reinforcements game game.current_player;
+          Game.compute_reinforcements game former_owner;
           if Array.for_all ((<>) former_owner) game.owner then
-            game.players <- List.filter ((<>) former_owner) game.players;
-          if List.length game.players = 1 then (
+            game.players.(former_owner).defeated <- false;
+          if Array.fold_left (fun c (p : Player.t) -> if p.defeated then c else c + 1) 0 game.players = 1 then (
             game.selected_territory <- -1;
             game.target_territory <- -1;
             game.current_phase <- Over
@@ -611,10 +622,12 @@ let () =
       frame_time := !frame_time *. 0.9 +. frame_finish_time -. !frame_start_time;
     frame_start_time := frame_finish_time
   done;
-  Text.destroy name_text;
+  Text.destroy territory_text;
   Text.destroy fps_text;
   Text.destroy fps_outline;
   Text.destroy status_text;
+  Text.destroy name_text;
+  Text.destroy name_outline;
   Text.destroy armies_text;
   Text.destroy armies_outline;
   GLFW.destroyWindow window;
