@@ -364,13 +364,13 @@ let () =
              Color.rgba_of_hsla @@
                if i + 1 > useable_armies then
                  { c with s = 0.0; l = 0.25 }
-               else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.15 })) <= 0.128 *. 0.128 then
+               else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.152 })) <= 0.128 *. 0.128 then
                  { c with l = 0.55 }
                else
                  { c with l = 0.45 }
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
-           GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.15);
+           GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.152);
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.5;
            Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4
          done
