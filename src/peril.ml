@@ -255,8 +255,8 @@ let () =
     let territory_count = Array.length map.territories in
     { Game.players =
         [| { name = "Roland"; color = Color.hsla_of_name Red; defeated = false; reinforcements = 0 };
-           { name = "Valérie"; color = Color.hsla_of_name Green; defeated = false; reinforcements = 0 };
-           { name = "Basile"; color = Color.hsla_of_name Blue; defeated = false; reinforcements = 0 } |];
+           { name = "Valérie"; color = {(Color.hsla_of_name Green) with l = 0.4}; defeated = false; reinforcements = 0 };
+           { name = "Basile"; color = {(Color.hsla_of_name Blue) with l = 0.6}; defeated = false; reinforcements = 0 } |];
       current_player = 0; current_phase = Claim;
       selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
       attacking_armies = 0; defending_armies = 0;
@@ -341,9 +341,9 @@ let () =
                if i + 1 > useable_armies then
                  { c with s = 0.0; l = 0.25 }
                else if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 1) *. 0.3 })) <= 0.128 *. 0.128 then
-                 { c with l = 0.55 }
+                 { c with l = c.l *. 1.1 }
                else
-                 { c with l = 0.45 }
+                 { c with l = c.l *. 0.9 }
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 (float_of_int (i - 1) *. 0.3);
@@ -365,9 +365,9 @@ let () =
                if i + 1 > useable_armies then
                  { c with s = 0.0; l = 0.25 }
                else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.152 })) <= 0.128 *. 0.128 then
-                 { c with l = 0.55 }
+                 { c with l = c.l *. 1.1 }
                else
-                 { c with l = 0.45 }
+                 { c with l = c.l *. 0.9 }
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.152);
