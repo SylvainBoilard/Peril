@@ -575,7 +575,7 @@ let () =
           Game.compute_reinforcements game game.current_player;
           Game.compute_reinforcements game former_owner;
           if Array.for_all ((<>) former_owner) game.owner then
-            game.players.(former_owner).defeated <- false;
+            game.players.(former_owner).defeated <- true;
           if Array.fold_left (fun c (p : Player.t) -> if p.defeated then c else c + 1) 0 game.players = 1 then (
             game.selected_territory <- -1;
             game.target_territory <- -1;
