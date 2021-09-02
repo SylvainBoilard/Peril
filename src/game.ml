@@ -15,6 +15,7 @@ type phase =
 
 type t = {
     players: Player.t array;
+    mutable defeated_count: int;
     mutable current_player: int;
     mutable current_phase: phase;
     mutable selected_territory: int;

@@ -249,6 +249,7 @@ let () =
   let territory_text = Text.create () in
   let fps_text, fps_outline = Text.create (), Text.create () in
   let status_text = Text.create () in
+  let cartridge_text = Text.create () in
   let name_text, name_outline = Text.create (), Text.create () in
   let armies_text, armies_outline = Text.create (), Text.create () in
   let game =
@@ -257,7 +258,7 @@ let () =
         [| { name = "Roland"; color = Color.hsla_of_name Red; defeated = false; reinforcements = 0 };
            { name = "Valérie"; color = {(Color.hsla_of_name Green) with l = 0.4}; defeated = false; reinforcements = 0 };
            { name = "Basile"; color = {(Color.hsla_of_name Blue) with l = 0.6}; defeated = false; reinforcements = 0 } |];
-      current_player = 0; current_phase = Claim;
+      defeated_count = 0; current_player = 0; current_phase = Claim;
       selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
       attacking_armies = 0; defending_armies = 0;
       map;
@@ -489,6 +490,54 @@ let () =
       )
     );
 
+    let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
+    let row = ref game.defeated_count in
+    GL.enable GL.Blend;
+    for i = 0 to Array.length game.players - 1 do
+      let player = game.players.((game.current_player + i) mod Array.length game.players) in
+      if not player.defeated then (
+        let c = Color.rgba_of_hsla player.color in
+        let x = -1.364 in
+        let y = y_orig -. float_of_int !row *. 0.136 in
+        let buffer_data =
+          Array1.of_array Float32 C_layout @@
+            [|(* color tab *)
+              x +. 0.032; y +. 0.064;   0.84375; 0.25;   c.r; c.g; c.b; 1.0;
+              x         ; y +. 0.064;   0.8125 ; 0.25;   c.r; c.g; c.b; 1.0;
+              x         ; y -. 0.064;   0.8125 ; 0.5 ;   c.r; c.g; c.b; 1.0;
+              x +. 0.032; y -. 0.064;   0.84375; 0.5 ;   c.r; c.g; c.b; 1.0;
+              (* cartridge *)
+              x         ; y +. 0.064;   0.78125; 0.25;   1.0; 1.0; 1.0; 1.0;
+             -1.6       ; y +. 0.064;   0.75   ; 0.25;   1.0; 1.0; 1.0; 1.0;
+             -1.6       ; y -. 0.064;   0.75   ; 0.5 ;   1.0; 1.0; 1.0; 1.0;
+              x         ; y -. 0.064;   0.78125; 0.5 ;   1.0; 1.0; 1.0; 1.0;
+              x +. 0.032; y -. 0.064;   0.8125 ; 0.5 ;   1.0; 1.0; 1.0; 1.0;
+              x +. 0.032; y +. 0.064;   0.8125 ; 0.25;   1.0; 1.0; 1.0; 1.0;
+              (* banner *)
+              x -. 0.128; y +. 0.064;   0.625; 0.5 ;   c.r; c.g; c.b; 1.0;
+              x -. 0.256; y +. 0.064;   0.5  ; 0.5 ;   c.r; c.g; c.b; 1.0;
+              x -. 0.256; y -. 0.064;   0.5  ; 0.75;   c.r; c.g; c.b; 1.0;
+              x -. 0.128; y -. 0.064;   0.625; 0.75;   c.r; c.g; c.b; 1.0;
+            |]
+        in
+        GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
+        GL.bufferData GL.ArrayBuffer buffer_data GL.DynamicDraw;
+        Render.draw_basic_multi basic_shader render.battle_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4];
+        incr row
+      )
+    done;
+    GL.disable GL.Blend;
+    row := game.defeated_count;
+    for i = 0 to Array.length game.players - 1 do
+      let player = game.players.((game.current_player + i) mod Array.length game.players) in
+      if not player.defeated then (
+        let p = frame_of_world_coords Vec2.{ x = -1.492; y = y_orig -. 0.036 -. float_of_int !row *. 0.136 } in
+        Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 DynamicDraw;
+        Text.draw text_ctx cartridge_text p (Color.rgba_of_name Black);
+        incr row
+      )
+    done;
+
     let name_color, name = match game.current_phase with
       | _ when !edition_mode -> Color.(rgba_of_name White), ""
       | Battle_SelectDefenderCount ->
@@ -574,9 +623,11 @@ let () =
           game.owner.(def_i) <- game.current_player;
           Game.compute_reinforcements game game.current_player;
           Game.compute_reinforcements game former_owner;
-          if Array.for_all ((<>) former_owner) game.owner then
+          if Array.for_all ((<>) former_owner) game.owner then (
             game.players.(former_owner).defeated <- true;
-          if Array.fold_left (fun c (p : Player.t) -> if p.defeated then c else c + 1) 0 game.players = 1 then (
+            game.defeated_count <- game.defeated_count + 1
+          );
+          if Array.length game.players - 1 = game.defeated_count then (
             game.selected_territory <- -1;
             game.target_territory <- -1;
             game.current_phase <- Over

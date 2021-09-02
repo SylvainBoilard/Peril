@@ -16,6 +16,7 @@ type t = {
     battle_texture: GL.texture;
     battle_buffer: GL.buffer;
     arrow_buffer: GL.buffer;
+    cartridge_buffer: GL.buffer;
     ui_background_buffer: GL.buffer;
   }
 
@@ -99,6 +100,7 @@ let make background_filename =
   let dice_texture, dice_buffer = load_dice () in
   let battle_texture, battle_buffer = load_battle () in
   let arrow_buffer = GL.genBuffer () in
+  let cartridge_buffer = GL.genBuffer () in
   let ui_background_buffer = make_ui_background () in
   { white_texture;
     background_texture; background_buffer;
@@ -108,6 +110,7 @@ let make background_filename =
     dice_texture; dice_buffer;
     battle_texture; battle_buffer;
     arrow_buffer;
+    cartridge_buffer;
     ui_background_buffer }
 
 let update_dashed_buffers render territories selected_territory =
