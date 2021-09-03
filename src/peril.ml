@@ -348,16 +348,16 @@ let () =
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 (float_of_int (i - 1) *. 0.3);
-           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.0;
-           Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.125) 0.0;
+           Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4
          done
       | Battle_SelectDefenderCount ->
          Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
          let c = Color.rgba_of_hsla game.players.(game.owner.(game.selected_territory)).color in
          GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
-         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.25) 0.0;
-         Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4;
+         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.125) 0.0;
+         Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4;
          let c = game.players.(game.owner.(game.target_territory)).color in
          let useable_armies = min 2 game.armies.(game.target_territory) in
          for i = 0 to 1 do
@@ -372,8 +372,8 @@ let () =
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.152);
-           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.25) 0.5;
-           Render.draw_basic basic_shader render.battle_texture render.battle_buffer GL.TriangleFan 0 4
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int i *. 0.125) 0.25;
+           Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4
          done
       | Battle_Resolving ->
          Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
@@ -390,23 +390,23 @@ let () =
            let buffer_data =
              Array1.of_array Float32 C_layout @@
                if dice_points.(i) > dice_points.(i + 3) then
-                 [|   x         ; y +. 0.032;   0.78125; 0.0  ;   1.0; 1.0; 1.0; arrow_t_i_f;
-                     -0.172     ; y +. 0.032;   0.75   ; 0.0  ;   1.0; 1.0; 1.0; arrow_t_i_f;
-                     -0.172     ; y -. 0.032;   0.75   ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
-                      x         ; y -. 0.032;   0.78125; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
-                      x +. 0.032; y -. 0.032;   0.8125 ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
-                      x +. 0.032; y +. 0.032;   0.8125 ; 0.0  ;   1.0; 1.0; 1.0; arrow_t_i_f |]
+                 [|   x         ; y +. 0.032;   0.390625; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                     -0.172     ; y +. 0.032;   0.375   ; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                     -0.172     ; y -. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      x         ; y -. 0.032;   0.390625; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      x +. 0.032; y -. 0.032;   0.40625 ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      x +. 0.032; y +. 0.032;   0.40625 ; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f |]
                else
-                 [| -.x         ; y +. 0.032;   0.78125; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
-                    -.x -. 0.032; y +. 0.032;   0.8125 ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f;
-                    -.x -. 0.032; y -. 0.032;   0.8125 ; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
-                    -.x         ; y -. 0.032;   0.78125; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
-                      0.172     ; y -. 0.032;   0.75   ; 0.25 ;   1.0; 1.0; 1.0; arrow_t_i_f;
-                      0.172     ; y +. 0.032;   0.75   ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f |]
+                 [| -.x         ; y +. 0.032;   0.390625; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+                    -.x -. 0.032; y +. 0.032;   0.40625 ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+                    -.x -. 0.032; y -. 0.032;   0.40625 ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                    -.x         ; y -. 0.032;   0.390625; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      0.172     ; y -. 0.032;   0.375   ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+                      0.172     ; y +. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f |]
            in
            GL.bindBuffer GL.ArrayBuffer render.arrow_buffer;
            GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-           Render.draw_basic basic_shader render.battle_texture render.arrow_buffer GL.TriangleFan 0 6
+           Render.draw_basic basic_shader render.ui_texture render.arrow_buffer GL.TriangleFan 0 6
          done;
          for i = 0 to game.attacking_armies - 1 do
            let o = dice_order.(i) in
@@ -421,7 +421,7 @@ let () =
            in
            GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) y;
            GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
-           Render.draw_basic basic_shader render.dice_texture render.dice_buffer GL.TriangleFan 0 4
+           Render.draw_basic basic_shader render.ui_texture render.dice_buffer GL.TriangleFan 0 4
          done;
          for i = 0 to game.defending_armies - 1 do
            let o = dice_order.(i + 3) in
@@ -435,8 +435,8 @@ let () =
              )
            in
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 y;
-           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.5;
-           Render.draw_basic basic_shader render.dice_texture render.dice_buffer GL.TriangleFan 0 4
+           GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.25;
+           Render.draw_basic basic_shader render.ui_texture render.dice_buffer GL.TriangleFan 0 4
          done
       | _ -> ()
       end;
@@ -502,27 +502,27 @@ let () =
         let buffer_data =
           Array1.of_array Float32 C_layout @@
             [|(* color tab *)
-              x +. 0.032; y +. 0.064;   0.84375; 0.25;   c.r; c.g; c.b; 1.0;
-              x         ; y +. 0.064;   0.8125 ; 0.25;   c.r; c.g; c.b; 1.0;
-              x         ; y -. 0.064;   0.8125 ; 0.5 ;   c.r; c.g; c.b; 1.0;
-              x +. 0.032; y -. 0.064;   0.84375; 0.5 ;   c.r; c.g; c.b; 1.0;
+              x +. 0.032; y +. 0.064;   0.421875; 0.625;   c.r; c.g; c.b; 1.0;
+              x         ; y +. 0.064;   0.40625 ; 0.625;   c.r; c.g; c.b; 1.0;
+              x         ; y -. 0.064;   0.40625 ; 0.75 ;   c.r; c.g; c.b; 1.0;
+              x +. 0.032; y -. 0.064;   0.421875; 0.75 ;   c.r; c.g; c.b; 1.0;
               (* cartridge *)
-              x         ; y +. 0.064;   0.78125; 0.25;   1.0; 1.0; 1.0; 1.0;
-             -1.6       ; y +. 0.064;   0.75   ; 0.25;   1.0; 1.0; 1.0; 1.0;
-             -1.6       ; y -. 0.064;   0.75   ; 0.5 ;   1.0; 1.0; 1.0; 1.0;
-              x         ; y -. 0.064;   0.78125; 0.5 ;   1.0; 1.0; 1.0; 1.0;
-              x +. 0.032; y -. 0.064;   0.8125 ; 0.5 ;   1.0; 1.0; 1.0; 1.0;
-              x +. 0.032; y +. 0.064;   0.8125 ; 0.25;   1.0; 1.0; 1.0; 1.0;
+              x         ; y +. 0.064;   0.390625; 0.625;   1.0; 1.0; 1.0; 1.0;
+             -1.6       ; y +. 0.064;   0.375   ; 0.625;   1.0; 1.0; 1.0; 1.0;
+             -1.6       ; y -. 0.064;   0.375   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+              x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+              x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+              x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
               (* banner *)
-              x -. 0.128; y +. 0.064;   0.625; 0.5 ;   c.r; c.g; c.b; 1.0;
-              x -. 0.256; y +. 0.064;   0.5  ; 0.5 ;   c.r; c.g; c.b; 1.0;
-              x -. 0.256; y -. 0.064;   0.5  ; 0.75;   c.r; c.g; c.b; 1.0;
-              x -. 0.128; y -. 0.064;   0.625; 0.75;   c.r; c.g; c.b; 1.0;
+              x -. 0.128; y +. 0.064;   0.3125  ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
+              x -. 0.256; y +. 0.064;   0.25    ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
+              x -. 0.256; y -. 0.064;   0.25    ; 0.875;   0.0; 0.0; 0.0; 1.0;
+              x -. 0.128; y -. 0.064;   0.3125  ; 0.875;   0.0; 0.0; 0.0; 1.0;
             |]
         in
         GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
         GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-        Render.draw_basic_multi basic_shader render.battle_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4];
+        Render.draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4];
         incr row
       )
     done;

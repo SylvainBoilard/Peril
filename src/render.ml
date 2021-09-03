@@ -11,9 +11,8 @@ type t = {
     dashed_texture: GL.texture;
     dashed_buffer: GL.buffer;
     dashed_elem_buffer: GL.buffer;
-    dice_texture: GL.texture;
+    ui_texture: GL.texture;
     dice_buffer: GL.buffer;
-    battle_texture: GL.texture;
     battle_buffer: GL.buffer;
     arrow_buffer: GL.buffer;
     cartridge_buffer: GL.buffer;
@@ -48,33 +47,31 @@ let load_dot () =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
-let load_dice () =
-  let texture = load_texture "gfx/dice.png" in
+let make_dice_buffer () =
   let buffer_data = [|
-       0.128;  0.128;   0.125; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128;  0.128;   0.0  ; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128; -0.128;   0.0  ; 0.5;   1.0; 1.0; 1.0; 1.0;
-       0.128; -0.128;   0.125; 0.5;   1.0; 1.0; 1.0; 1.0;
+       0.128;  0.128;   0.125; 0.0 ;   1.0; 1.0; 1.0; 1.0;
+      -0.128;  0.128;   0.0  ; 0.0 ;   1.0; 1.0; 1.0; 1.0;
+      -0.128; -0.128;   0.0  ; 0.25;   1.0; 1.0; 1.0; 1.0;
+       0.128; -0.128;   0.125; 0.25;   1.0; 1.0; 1.0; 1.0;
     |] |> Array1.of_array Float32 C_layout
   in
   let buffer = GL.genBuffer () in
   GL.bindBuffer GL.ArrayBuffer buffer;
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  texture, buffer
+  buffer
 
-let load_battle () =
-  let texture = load_texture "gfx/battle.png" in
+let make_battle_buffer () =
   let buffer_data = [|
-       0.128;  0.128;   0.25; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128;  0.128;   0.0 ; 0.0;   1.0; 1.0; 1.0; 1.0;
-      -0.128; -0.128;   0.0 ; 0.5;   1.0; 1.0; 1.0; 1.0;
-       0.128; -0.128;   0.25; 0.5;   1.0; 1.0; 1.0; 1.0;
+       0.128;  0.128;   0.125; 0.5 ;   1.0; 1.0; 1.0; 1.0;
+      -0.128;  0.128;   0.0  ; 0.5 ;   1.0; 1.0; 1.0; 1.0;
+      -0.128; -0.128;   0.0  ; 0.75;   1.0; 1.0; 1.0; 1.0;
+       0.128; -0.128;   0.125; 0.75;   1.0; 1.0; 1.0; 1.0;
     |] |> Array1.of_array Float32 C_layout
   in
   let buffer = GL.genBuffer () in
   GL.bindBuffer GL.ArrayBuffer buffer;
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  texture, buffer
+  buffer
 
 let make_ui_background () =
   let buffer_data = [|
@@ -97,8 +94,9 @@ let make background_filename =
   let dashed_texture = load_texture "gfx/dashed.png" in
   let dashed_buffer = GL.genBuffer () in
   let dashed_elem_buffer = GL.genBuffer () in
-  let dice_texture, dice_buffer = load_dice () in
-  let battle_texture, battle_buffer = load_battle () in
+  let ui_texture = load_texture "gfx/ui.png" in
+  let dice_buffer = make_dice_buffer () in
+  let battle_buffer = make_battle_buffer () in
   let arrow_buffer = GL.genBuffer () in
   let cartridge_buffer = GL.genBuffer () in
   let ui_background_buffer = make_ui_background () in
@@ -107,10 +105,8 @@ let make background_filename =
     border_buffer;
     dot_texture; dot_buffer;
     dashed_texture; dashed_buffer; dashed_elem_buffer;
-    dice_texture; dice_buffer;
-    battle_texture; battle_buffer;
-    arrow_buffer;
-    cartridge_buffer;
+    ui_texture;
+    dice_buffer; battle_buffer; arrow_buffer; cartridge_buffer;
     ui_background_buffer }
 
 let update_dashed_buffers render territories selected_territory =
