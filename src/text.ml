@@ -118,7 +118,7 @@ let create () =
     indices_buffer = GL.genBuffer ();
     elements_count = 0; width = 0 }
 
-let update ctx text font str glyph_kind size usage =
+let update ctx text font str glyph_kind size ?(base_kerning=0) usage =
   FreeType.Face.setCharSize font.face 0 (size lsl 6) 72 72;
   let str_len = Uutf.String.fold_utf_8 (fun i _ _ -> succ i) 0 str in
   let text_data = Bigarray.(Array1.create Float32 C_layout (str_len * 16)) in
@@ -128,7 +128,7 @@ let update ctx text font str glyph_kind size usage =
       try Hashtbl.find font.glyphs (glyph_key c glyph_kind size)
       with Not_found -> load_glyph ctx font c glyph_kind size
     in
-    let kerning = FreeType.Face.getKerning font.face p c Default asr 6 in
+    let kerning = base_kerning + FreeType.Face.getKerning font.face p c Default asr 6 in
     let left = float_of_int (x + kerning + glyph_data.bitmap.left) in
     let right = float_of_int (x + kerning + glyph_data.bitmap.left + glyph_data.bitmap.width) in
     let top = float_of_int glyph_data.bitmap.top in
@@ -171,7 +171,7 @@ let update ctx text font str glyph_kind size usage =
        let c = FreeType.Face.getCharIndex font.face (Uchar.to_int u) in
        loop (push_glyph x i p c) (i + 1) c
   in
-  text.width <- loop 0 0 0;
+  text.width <- loop ~-base_kerning 0 0;
   text.elements_count <- str_len * 6;
   GL.bindBuffer GL.ArrayBuffer text.data_buffer;
   GL.bufferData GL.ArrayBuffer text_data usage;

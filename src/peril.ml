@@ -317,8 +317,8 @@ let () =
           then Color.rgba_of_hsla game.players.(owner).color
           else Color.rgba_of_name White
         in
-        Text.update text_ctx armies_text text_font_sans armies_str Regular 20 GL.StreamDraw;
-        Text.update text_ctx armies_outline text_font_sans armies_str Outline 20 GL.StreamDraw;
+        Text.update text_ctx armies_text text_font_sans armies_str Regular 20 ~base_kerning:~-1 StreamDraw;
+        Text.update text_ctx armies_outline text_font_sans armies_str Outline 20 ~base_kerning:~-1 StreamDraw;
         let offset = Vec2.{ x = float_of_int (armies_text.width / 2); y = -8.0 } in
         let pos = Vec2.(round (sub (frame_of_world_coords map.territories.(i).center) offset)) in
         Text.draw text_ctx armies_outline pos (Color.rgba_of_name Black);
@@ -532,7 +532,7 @@ let () =
       let player = game.players.((game.current_player + i) mod Array.length game.players) in
       if not player.defeated then (
         let p = frame_of_world_coords Vec2.{ x = -1.492; y = y_orig -. 0.036 -. float_of_int !row *. 0.136 } in
-        Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 DynamicDraw;
+        Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 DynamicDraw;
         Text.draw text_ctx cartridge_text p (Color.rgba_of_name Black);
         incr row
       )
