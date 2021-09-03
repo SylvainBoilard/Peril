@@ -405,7 +405,7 @@ let () =
                       0.172     ; y +. 0.032;   0.75   ; 0.125;   1.0; 1.0; 1.0; arrow_t_i_f |]
            in
            GL.bindBuffer GL.ArrayBuffer render.arrow_buffer;
-           GL.bufferData GL.ArrayBuffer buffer_data GL.DynamicDraw;
+           GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
            Render.draw_basic basic_shader render.battle_texture render.arrow_buffer GL.TriangleFan 0 6
          done;
          for i = 0 to game.attacking_armies - 1 do
@@ -521,7 +521,7 @@ let () =
             |]
         in
         GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
-        GL.bufferData GL.ArrayBuffer buffer_data GL.DynamicDraw;
+        GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
         Render.draw_basic_multi basic_shader render.battle_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4];
         incr row
       )
@@ -532,7 +532,7 @@ let () =
       let player = game.players.((game.current_player + i) mod Array.length game.players) in
       if not player.defeated then (
         let p = frame_of_world_coords Vec2.{ x = -1.492; y = y_orig -. 0.036 -. float_of_int !row *. 0.136 } in
-        Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 DynamicDraw;
+        Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 StreamDraw;
         Text.draw text_ctx cartridge_text p (Color.rgba_of_name Black);
         incr row
       )
