@@ -103,8 +103,7 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
                 else st.shape.(i - 1)
               )
           in
-          let new_center = compute_shape_barycenter new_shape in
-          game.map.territories.(game.selected_territory) <- { st with shape = new_shape; center = new_center };
+          game.map.territories.(game.selected_territory) <- { st with shape = new_shape };
           selected_poi := Corner (n + 1);
           let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
           GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
@@ -216,6 +215,9 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
        game.armies.(clicked_territory) <- game.armies.(clicked_territory) + 1
      )
   | 0, false, _ when !selected_poi <> NoPOI ->
+     let st = game.map.territories.(game.selected_territory) in
+     let new_center = compute_shape_barycenter st.shape in
+     game.map.territories.(game.selected_territory) <- { st with center = new_center };
      selected_poi := NoPOI;
      GLFW.setInputMode window GLFW.Cursor GLFW.Normal
   | _ -> ()
