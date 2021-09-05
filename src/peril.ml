@@ -67,6 +67,11 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
      game.current_player <- -1;
      Game.start_next_player_turn game
   | Space, Press, Battle_SelectTerritory ->
+     if game.territory_captured then (
+       game.players.(game.current_player).cards <- game.next_card :: game.players.(game.current_player).cards;
+       game.next_card <- game.next_card + 1;
+       game.territory_captured <- false
+     );
      game.selected_territory <- -1;
      game.current_phase <- Move_SelectTerritory
   | Space, Press, Battle_Invade ->
@@ -256,16 +261,25 @@ let () =
   let armies_text, armies_outline = Text.create (), Text.create () in
   let game =
     let territory_count = Array.length map.territories in
+    let cards_territories = Array.init territory_count Fun.id in
+    let cards_armies = Array.init territory_count (fun i -> i mod 3) in
+    Array.shuffle cards_territories;
+    Array.shuffle cards_armies;
     { Game.players =
-        [| { name = "Roland"; color = Color.hsla_of_name Red; defeated = false; reinforcements = 0 };
-           { name = "Valérie"; color = {(Color.hsla_of_name Green) with l = 0.4}; defeated = false; reinforcements = 0 };
-           { name = "Basile"; color = {(Color.hsla_of_name Blue) with l = 0.6}; defeated = false; reinforcements = 0 } |];
+        [| { name = "Roland"; color = Color.hsla_of_name Red;
+             defeated = false; reinforcements = 0; cards = [] };
+           { name = "Valérie"; color = { (Color.hsla_of_name Green) with l = 0.4 };
+             defeated = false; reinforcements = 0; cards = [] };
+           { name = "Basile"; color = { (Color.hsla_of_name Blue) with l = 0.6 };
+             defeated = false; reinforcements = 0; cards = [] } |];
       defeated_count = 0; current_player = 0; current_phase = Claim;
       selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
-      attacking_armies = 0; defending_armies = 0;
+      attacking_armies = 0; defending_armies = 0; territory_captured = false;
       map;
       owner = Array.make territory_count (-1);
-      armies = Array.make territory_count 0 }
+      armies = Array.make territory_count 0;
+      cards = Array.map2 make_pair cards_territories cards_armies;
+      next_card = 0; traded_in_sets = 0 }
   in
   let dice_points = Array.make 5 0 in
   let dice_order = Array.init 5 (fun i -> i mod 3) in
@@ -499,8 +513,11 @@ let () =
       let player = game.players.((game.current_player + i) mod Array.length game.players) in
       if not player.defeated then (
         let c = Color.rgba_of_hsla player.color in
-        let x = -1.364 in
+        let x = -1.184 in
         let y = y_orig -. float_of_int !row *. 0.136 in
+        let visual_cards_count = min 3 (List.length player.cards) in
+        let card_tx = 0.25 +. 0.0625 *. float_of_int (max 1 visual_cards_count) in
+        let card_a = if visual_cards_count = 0 then 0.25 else 1.0 in
         let buffer_data =
           Array1.of_array Float32 C_layout @@
             [|(* color tab *)
@@ -515,16 +532,21 @@ let () =
               x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
               x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
               x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
-              (* banner *)
-              x -. 0.128; y +. 0.064;   0.3125  ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
-              x -. 0.256; y +. 0.064;   0.25    ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
-              x -. 0.256; y -. 0.064;   0.25    ; 0.875;   0.0; 0.0; 0.0; 1.0;
-              x -. 0.128; y -. 0.064;   0.3125  ; 0.875;   0.0; 0.0; 0.0; 1.0;
+              (* banner icon *)
+              x -. 0.112; y +. 0.064;   0.3125  ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
+              x -. 0.24 ; y +. 0.064;   0.25    ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
+              x -. 0.24 ; y -. 0.064;   0.25    ; 0.875;   0.0; 0.0; 0.0; 1.0;
+              x -. 0.112; y -. 0.064;   0.3125  ; 0.875;   0.0; 0.0; 0.0; 1.0;
+              (* cards icon *)
+              x -. 0.288; y +. 0.064;   card_tx +. 0.0625; 0.75 ;   0.0; 0.0; 0.0; card_a;
+              x -. 0.416; y +. 0.064;   card_tx          ; 0.75 ;   0.0; 0.0; 0.0; card_a;
+              x -. 0.416; y -. 0.064;   card_tx          ; 0.875;   0.0; 0.0; 0.0; card_a;
+              x -. 0.288; y -. 0.064;   card_tx +. 0.0625; 0.875;   0.0; 0.0; 0.0; card_a;
             |]
         in
         GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
         GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-        Render.draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4];
+        Render.draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4; 14, 4];
         incr row
       )
     done;
@@ -533,9 +555,12 @@ let () =
     for i = 0 to Array.length game.players - 1 do
       let player = game.players.((game.current_player + i) mod Array.length game.players) in
       if not player.defeated then (
-        let p = frame_of_world_coords Vec2.{ x = -1.492; y = y_orig -. 0.036 -. float_of_int !row *. 0.136 } in
+        let y = y_orig -. 0.036 -. float_of_int !row *. 0.136 in
+        let x = if player.reinforcements < 10 then -1.28 else -1.248 in
         Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 StreamDraw;
-        Text.draw text_ctx cartridge_text p (Color.rgba_of_name Black);
+        Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x; y }) (Color.rgba_of_name Black);
+        Text.update text_ctx cartridge_text text_font_sans (string_of_int (List.length player.cards)) Regular 24 StreamDraw;
+        Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x = -1.472; y }) (Color.rgba_of_name Black);
         incr row
       )
     done;
@@ -627,14 +652,19 @@ let () =
           Game.compute_reinforcements game former_owner;
           if Array.for_all ((<>) former_owner) game.owner then (
             game.players.(former_owner).defeated <- true;
+            game.players.(game.current_player).cards <-
+              game.players.(former_owner).cards @ game.players.(game.current_player).cards;
+            game.players.(former_owner).cards <- [];
             game.defeated_count <- game.defeated_count + 1
           );
           if Array.length game.players - 1 = game.defeated_count then (
             game.selected_territory <- -1;
             game.target_territory <- -1;
             game.current_phase <- Over
-          ) else
+          ) else (
+            game.territory_captured <- true;
             game.current_phase <- Battle_Invade
+          )
         ) else (
           game.armies.(atk_i) <- game.armies.(atk_i) - !atk_dead;
           game.selected_territory <- -1;

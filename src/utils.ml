@@ -1,3 +1,5 @@
+let make_pair a b = a, b
+
 module Float =
   struct
     include Float

@@ -23,9 +23,13 @@ type t = {
     mutable armies_to_deploy: int;
     mutable attacking_armies: int;
     mutable defending_armies: int;
+    mutable territory_captured: bool;
     map: Map.t;
     owner: int array;
     armies: int array;
+    cards: (int * int) array;
+    mutable next_card: int;
+    mutable traded_in_sets: int;
   }
 
 let compute_reinforcements game player =

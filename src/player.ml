@@ -3,4 +3,5 @@ type t = {
     color: Color.hsla;
     mutable defeated: bool;
     mutable reinforcements: int;
+    mutable cards: int list;
   }
