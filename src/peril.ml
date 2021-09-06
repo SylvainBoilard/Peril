@@ -460,7 +460,7 @@ let () =
       GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
       GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
       GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
-    ) else (
+    ) else ( (* !edition_mode *)
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
       let _, border_draws =
@@ -507,8 +507,34 @@ let () =
     );
 
     let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
-    let row = ref game.defeated_count in
     GL.enable GL.Blend;
+    if Game.in_main_loop_phase game then (
+      let buffer_data =
+        Array1.of_array Float32 C_layout @@
+          [|
+            -1.472; y_orig +. 0.192;   0.3125; 0.875;   1.0; 1.0; 1.0; 1.0;
+            -1.6  ; y_orig +. 0.192;   0.25  ; 0.875;   1.0; 1.0; 1.0; 1.0;
+            -1.6  ; y_orig +. 0.064;   0.25  ; 1.0  ;   1.0; 1.0; 1.0; 1.0;
+            -1.472; y_orig +. 0.064;   0.3125; 1.0  ;   1.0; 1.0; 1.0; 1.0;
+          |]
+      in
+      if Game.in_battle_phase game then
+        GL.uniform2f basic_shader.texture_coords_offset_location 0.0625 0.0
+      else if Game.in_move_phase game then
+        GL.uniform2f basic_shader.texture_coords_offset_location 0.125 0.0;
+      GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
+      GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
+      Render.draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
+      if game.territory_captured then (
+        GL.uniform2f basic_shader.texture_coords_offset_location 0.1875 0.0;
+        GL.uniform2f basic_shader.vertex_coords_offset_location 0.128 0.0;
+        Render.draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
+        GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
+      );
+      GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
+    );
+
+    let row = ref game.defeated_count in
     for i = 0 to Array.length game.players - 1 do
       let player = game.players.((game.current_player + i) mod Array.length game.players) in
       if not player.defeated then (

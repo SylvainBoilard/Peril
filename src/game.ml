@@ -32,6 +32,27 @@ type t = {
     mutable traded_in_sets: int;
   }
 
+let in_main_loop_phase game = match game.current_phase with
+  | Claim | Deploy | Over -> false
+  | _ -> true
+
+let in_battle_phase game = match game.current_phase with
+  | Battle_SelectTerritory
+  | Battle_SelectTarget
+  | Battle_SelectAttackerCount
+  | Battle_SelectDefenderCount
+  | Battle_Resolving
+  | Battle_Invade
+    -> true
+  | _ -> false
+
+let in_move_phase game = match game.current_phase with
+  | Move_SelectTerritory
+  | Move_SelectDestination
+  | Move_Move
+    -> true
+  | _ -> false
+
 let compute_reinforcements game player =
   let by_territories =
     Array.fold_left (fun c o -> if o = player then c + 1 else c) 0 game.owner
