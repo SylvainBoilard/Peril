@@ -148,6 +148,8 @@ external linkProgram : program:program -> unit
   = "caml_glLinkProgram" [@@noalloc]
 external getProgramInfoLog : program:program -> string option
   = "caml_glGetProgramInfoLog"
+external releaseShaderCompiler : unit -> unit
+  = "caml_glReleaseShaderCompiler" [@@noalloc]
 external useProgram : program:program -> unit = "caml_glUseProgram" [@@noalloc]
 external genFramebuffer : unit -> framebuffer
   = "caml_glGenFramebuffer" [@@noalloc]

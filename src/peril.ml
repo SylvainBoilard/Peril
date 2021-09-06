@@ -249,8 +249,9 @@ let () =
   GLFW.makeContextCurrent (Some window);
   GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
   let basic_shader = load_basic_shader () in
-  let render = Render.make ("maps/" ^ map.background) in
   let text_ctx = Text.init () in
+  GL.releaseShaderCompiler ();
+  let render = Render.make ("maps/" ^ map.background) in
   let text_font_serif = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf" in
   let text_font_sans = Text.load_font "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" in
   let territory_text = Text.create () in

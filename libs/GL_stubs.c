@@ -244,6 +244,12 @@ CAMLprim value caml_glGetProgramInfoLog(value program)
     CAMLreturn(ret);
 }
 
+CAMLprim value caml_glReleaseShaderCompiler(CAMLvoid)
+{
+    glReleaseShaderCompiler();
+    return Val_unit;
+}
+
 CAMLprim value caml_glUseProgram(value program)
 {
     glUseProgram(Int_val(program));
