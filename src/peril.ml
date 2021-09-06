@@ -456,10 +456,93 @@ let () =
          done
       | _ -> ()
       end;
-      GL.disable GL.Blend;
       GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
       GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-      GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
+      GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
+
+      let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
+      if Game.in_main_loop_phase game then (
+        let buffer_data =
+          Array1.of_array Float32 C_layout @@
+            [|
+              -1.472; y_orig +. 0.192;   0.3125; 0.875;   1.0; 1.0; 1.0; 1.0;
+              -1.6  ; y_orig +. 0.192;   0.25  ; 0.875;   1.0; 1.0; 1.0; 1.0;
+              -1.6  ; y_orig +. 0.064;   0.25  ; 1.0  ;   1.0; 1.0; 1.0; 1.0;
+              -1.472; y_orig +. 0.064;   0.3125; 1.0  ;   1.0; 1.0; 1.0; 1.0;
+            |]
+        in
+        if Game.in_battle_phase game then
+          GL.uniform2f basic_shader.texture_coords_offset_location 0.0625 0.0
+        else if Game.in_move_phase game then
+          GL.uniform2f basic_shader.texture_coords_offset_location 0.125 0.0;
+        GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
+        GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
+        Render.draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
+        if game.territory_captured then (
+          GL.uniform2f basic_shader.texture_coords_offset_location 0.1875 0.0;
+          GL.uniform2f basic_shader.vertex_coords_offset_location 0.128 0.0;
+          Render.draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
+          GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
+        );
+        GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
+      );
+
+      let row = ref game.defeated_count in
+      for i = 0 to Array.length game.players - 1 do
+        let player = game.players.((game.current_player + i) mod Array.length game.players) in
+        if not player.defeated then (
+          let c = Color.rgba_of_hsla player.color in
+          let x = -1.184 in
+          let y = y_orig -. float_of_int !row *. 0.136 in
+          let visual_cards_count = min 3 (List.length player.cards) in
+          let card_tx = 0.25 +. 0.0625 *. float_of_int (max 1 visual_cards_count) in
+          let card_a = if visual_cards_count = 0 then 0.25 else 1.0 in
+          let buffer_data =
+            Array1.of_array Float32 C_layout @@
+              [|(* color tab *)
+                x +. 0.032; y +. 0.064;   0.421875; 0.625;   c.r; c.g; c.b; 1.0;
+                x         ; y +. 0.064;   0.40625 ; 0.625;   c.r; c.g; c.b; 1.0;
+                x         ; y -. 0.064;   0.40625 ; 0.75 ;   c.r; c.g; c.b; 1.0;
+                x +. 0.032; y -. 0.064;   0.421875; 0.75 ;   c.r; c.g; c.b; 1.0;
+                (* cartridge *)
+                x         ; y +. 0.064;   0.390625; 0.625;   1.0; 1.0; 1.0; 1.0;
+               -1.6       ; y +. 0.064;   0.375   ; 0.625;   1.0; 1.0; 1.0; 1.0;
+               -1.6       ; y -. 0.064;   0.375   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+                x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+                x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+                x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
+                (* banner icon *)
+                x -. 0.112; y +. 0.064;   0.3125  ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
+                x -. 0.24 ; y +. 0.064;   0.25    ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
+                x -. 0.24 ; y -. 0.064;   0.25    ; 0.875;   0.0; 0.0; 0.0; 1.0;
+                x -. 0.112; y -. 0.064;   0.3125  ; 0.875;   0.0; 0.0; 0.0; 1.0;
+                (* cards icon *)
+                x -. 0.288; y +. 0.064;   card_tx +. 0.0625; 0.75 ;   0.0; 0.0; 0.0; card_a;
+                x -. 0.416; y +. 0.064;   card_tx          ; 0.75 ;   0.0; 0.0; 0.0; card_a;
+                x -. 0.416; y -. 0.064;   card_tx          ; 0.875;   0.0; 0.0; 0.0; card_a;
+                x -. 0.288; y -. 0.064;   card_tx +. 0.0625; 0.875;   0.0; 0.0; 0.0; card_a;
+              |]
+          in
+          GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
+          GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
+          Render.draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4; 14, 4];
+          incr row
+        )
+      done;
+      GL.disable GL.Blend;
+      row := game.defeated_count;
+      for i = 0 to Array.length game.players - 1 do
+        let player = game.players.((game.current_player + i) mod Array.length game.players) in
+        if not player.defeated then (
+          let y = y_orig -. 0.036 -. float_of_int !row *. 0.136 in
+          let x = if player.reinforcements < 10 then -1.28 else -1.248 in
+          Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 StreamDraw;
+          Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x; y }) (Color.rgba_of_name Black);
+          Text.update text_ctx cartridge_text text_font_sans (string_of_int (List.length player.cards)) Regular 24 StreamDraw;
+          Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x = -1.472; y }) (Color.rgba_of_name Black);
+          incr row
+        )
+      done
     ) else ( (* !edition_mode *)
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
@@ -505,91 +588,6 @@ let () =
         | None -> ()
       )
     );
-
-    let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
-    GL.enable GL.Blend;
-    if Game.in_main_loop_phase game then (
-      let buffer_data =
-        Array1.of_array Float32 C_layout @@
-          [|
-            -1.472; y_orig +. 0.192;   0.3125; 0.875;   1.0; 1.0; 1.0; 1.0;
-            -1.6  ; y_orig +. 0.192;   0.25  ; 0.875;   1.0; 1.0; 1.0; 1.0;
-            -1.6  ; y_orig +. 0.064;   0.25  ; 1.0  ;   1.0; 1.0; 1.0; 1.0;
-            -1.472; y_orig +. 0.064;   0.3125; 1.0  ;   1.0; 1.0; 1.0; 1.0;
-          |]
-      in
-      if Game.in_battle_phase game then
-        GL.uniform2f basic_shader.texture_coords_offset_location 0.0625 0.0
-      else if Game.in_move_phase game then
-        GL.uniform2f basic_shader.texture_coords_offset_location 0.125 0.0;
-      GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
-      GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-      Render.draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
-      if game.territory_captured then (
-        GL.uniform2f basic_shader.texture_coords_offset_location 0.1875 0.0;
-        GL.uniform2f basic_shader.vertex_coords_offset_location 0.128 0.0;
-        Render.draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
-        GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
-      );
-      GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
-    );
-
-    let row = ref game.defeated_count in
-    for i = 0 to Array.length game.players - 1 do
-      let player = game.players.((game.current_player + i) mod Array.length game.players) in
-      if not player.defeated then (
-        let c = Color.rgba_of_hsla player.color in
-        let x = -1.184 in
-        let y = y_orig -. float_of_int !row *. 0.136 in
-        let visual_cards_count = min 3 (List.length player.cards) in
-        let card_tx = 0.25 +. 0.0625 *. float_of_int (max 1 visual_cards_count) in
-        let card_a = if visual_cards_count = 0 then 0.25 else 1.0 in
-        let buffer_data =
-          Array1.of_array Float32 C_layout @@
-            [|(* color tab *)
-              x +. 0.032; y +. 0.064;   0.421875; 0.625;   c.r; c.g; c.b; 1.0;
-              x         ; y +. 0.064;   0.40625 ; 0.625;   c.r; c.g; c.b; 1.0;
-              x         ; y -. 0.064;   0.40625 ; 0.75 ;   c.r; c.g; c.b; 1.0;
-              x +. 0.032; y -. 0.064;   0.421875; 0.75 ;   c.r; c.g; c.b; 1.0;
-              (* cartridge *)
-              x         ; y +. 0.064;   0.390625; 0.625;   1.0; 1.0; 1.0; 1.0;
-             -1.6       ; y +. 0.064;   0.375   ; 0.625;   1.0; 1.0; 1.0; 1.0;
-             -1.6       ; y -. 0.064;   0.375   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-              x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-              x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-              x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
-              (* banner icon *)
-              x -. 0.112; y +. 0.064;   0.3125  ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
-              x -. 0.24 ; y +. 0.064;   0.25    ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
-              x -. 0.24 ; y -. 0.064;   0.25    ; 0.875;   0.0; 0.0; 0.0; 1.0;
-              x -. 0.112; y -. 0.064;   0.3125  ; 0.875;   0.0; 0.0; 0.0; 1.0;
-              (* cards icon *)
-              x -. 0.288; y +. 0.064;   card_tx +. 0.0625; 0.75 ;   0.0; 0.0; 0.0; card_a;
-              x -. 0.416; y +. 0.064;   card_tx          ; 0.75 ;   0.0; 0.0; 0.0; card_a;
-              x -. 0.416; y -. 0.064;   card_tx          ; 0.875;   0.0; 0.0; 0.0; card_a;
-              x -. 0.288; y -. 0.064;   card_tx +. 0.0625; 0.875;   0.0; 0.0; 0.0; card_a;
-            |]
-        in
-        GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
-        GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-        Render.draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4; 14, 4];
-        incr row
-      )
-    done;
-    GL.disable GL.Blend;
-    row := game.defeated_count;
-    for i = 0 to Array.length game.players - 1 do
-      let player = game.players.((game.current_player + i) mod Array.length game.players) in
-      if not player.defeated then (
-        let y = y_orig -. 0.036 -. float_of_int !row *. 0.136 in
-        let x = if player.reinforcements < 10 then -1.28 else -1.248 in
-        Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 StreamDraw;
-        Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x; y }) (Color.rgba_of_name Black);
-        Text.update text_ctx cartridge_text text_font_sans (string_of_int (List.length player.cards)) Regular 24 StreamDraw;
-        Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x = -1.472; y }) (Color.rgba_of_name Black);
-        incr row
-      )
-    done;
 
     let name_color, name = match game.current_phase with
       | _ when !edition_mode -> Color.(rgba_of_name White), ""
@@ -735,6 +733,7 @@ let () =
   Text.destroy fps_text;
   Text.destroy fps_outline;
   Text.destroy status_text;
+  Text.destroy cartridge_text;
   Text.destroy name_text;
   Text.destroy name_outline;
   Text.destroy armies_text;
