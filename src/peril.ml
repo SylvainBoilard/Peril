@@ -101,11 +101,12 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
        | Edge (n, m) ->
           let new_shape =
             Array.init (Array.length st.shape + 1) (fun i ->
-                if i <= n
-                then st.shape.(i)
-                else if i = n + 1
-                then Vec2.lerp st.shape.(n) st.shape.(m) 0.5
-                else st.shape.(i - 1)
+                if i <= n then
+                  st.shape.(i)
+                else if i = n + 1 then
+                  Vec2.lerp st.shape.(n) st.shape.(m) 0.5
+                else
+                  st.shape.(i - 1)
               )
           in
           game.map.territories.(game.selected_territory) <- { st with shape = new_shape };
@@ -267,12 +268,9 @@ let () =
     Array.shuffle cards_territories;
     Array.shuffle cards_armies;
     { Game.players =
-        [| { name = "Roland"; color = Color.hsla_of_name Red;
-             defeated = false; reinforcements = 0; cards = [] };
-           { name = "Valérie"; color = { (Color.hsla_of_name Green) with l = 0.4 };
-             defeated = false; reinforcements = 0; cards = [] };
-           { name = "Basile"; color = { (Color.hsla_of_name Blue) with l = 0.6 };
-             defeated = false; reinforcements = 0; cards = [] } |];
+        [| Player.make "Roland" (Color.hsla_of_name Red);
+           Player.make "Valérie" { (Color.hsla_of_name Green) with l = 0.4 };
+           Player.make "Basile" { (Color.hsla_of_name Blue) with l = 0.6 } |];
       defeated_count = 0; current_player = 0; current_phase = Claim;
       selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
       attacking_armies = 0; defending_armies = 0; territory_captured = false;
@@ -316,13 +314,11 @@ let () =
         let adjacent = game.map.territories.(game.selected_territory).adjacent in
         let dashed_draws = Render.select_dashed_draws filter adjacent in
         GL.uniform2f basic_shader.texture_coords_offset_location !dashed_animation_time 0.0;
-        GL.enable GL.Blend;
         GL.lineWidth 3.0;
         Render.draw_basic_multi
           basic_shader render.dashed_texture render.dashed_buffer
           ~elem_buffer:render.dashed_elem_buffer GL.Lines dashed_draws;
         GL.lineWidth 1.0;
-        GL.disable GL.Blend;
         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
       );
 
@@ -331,7 +327,7 @@ let () =
         let owner = game.owner.(i) in
         let color =
           if owner <> -1
-          then Color.rgba_of_hsla game.players.(owner).color
+          then game.players.(owner).color_suite.normal
           else Color.rgba_of_name White
         in
         Text.update text_ctx armies_text text_font_sans armies_str Regular 20 ~base_kerning:~-1 StreamDraw;
@@ -351,17 +347,16 @@ let () =
       begin match game.current_phase with
       | Battle_SelectAttackerCount ->
          Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
-         let c = game.players.(game.owner.(game.selected_territory)).color in
+         let color_suite = game.players.(game.owner.(game.selected_territory)).color_suite in
          let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
          for i = 0 to 2 do
            let c =
-             Color.rgba_of_hsla @@
-               if i + 1 > useable_armies then
-                 { c with s = 0.0; l = 0.25 }
-               else if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 1) *. 0.3 })) <= 0.128 *. 0.128 then
-                 { c with l = c.l *. 1.1 }
-               else
-                 { c with l = c.l *. 0.9 }
+             if i + 1 > useable_armies then
+               color_suite.desaturated
+             else if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 1) *. 0.3 })) <= 0.128 *. 0.128 then
+               color_suite.brighter
+             else
+               color_suite.darker
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 (float_of_int (i - 1) *. 0.3);
@@ -370,22 +365,21 @@ let () =
          done
       | Battle_SelectDefenderCount ->
          Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
-         let c = Color.rgba_of_hsla game.players.(game.owner.(game.selected_territory)).color in
+         let c = game.players.(game.owner.(game.selected_territory)).color_suite.normal in
          GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
          GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
          GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.125) 0.0;
          Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4;
-         let c = game.players.(game.owner.(game.target_territory)).color in
+         let color_suite = game.players.(game.owner.(game.target_territory)).color_suite in
          let useable_armies = min 2 game.armies.(game.target_territory) in
          for i = 0 to 1 do
            let c =
-             Color.rgba_of_hsla @@
-               if i + 1 > useable_armies then
-                 { c with s = 0.0; l = 0.25 }
-               else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.152 })) <= 0.128 *. 0.128 then
-                 { c with l = c.l *. 1.1 }
-               else
-                 { c with l = c.l *. 0.9 }
+             if i + 1 > useable_armies then
+               color_suite.desaturated
+             else if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.152 })) <= 0.128 *. 0.128 then
+               color_suite.brighter
+             else
+               color_suite.darker
            in
            GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 (float_of_int i *. 0.3 -. 0.152);
@@ -492,7 +486,7 @@ let () =
       for i = 0 to Array.length game.players - 1 do
         let player = game.players.((game.current_player + i) mod Array.length game.players) in
         if not player.defeated then (
-          let c = Color.rgba_of_hsla player.color in
+          let c = player.color_suite.normal in
           let x = -1.184 in
           let y = y_orig -. float_of_int !row *. 0.136 in
           let visual_cards_count = min 3 (List.length player.cards) in
@@ -594,11 +588,11 @@ let () =
       | _ when !edition_mode -> Color.(rgba_of_name White), ""
       | Battle_SelectDefenderCount ->
          let player = game.players.(game.owner.(game.target_territory)) in
-         Color.rgba_of_hsla player.color, player.name
+         player.color_suite.normal, player.name
       | Battle_Resolving -> Color.(rgba_of_name White), ""
       | _ ->
          let player = game.players.(game.current_player) in
-         Color.rgba_of_hsla player.color, player.name
+         player.color_suite.normal, player.name
     in
     let status = match game.current_phase with
       | _ when !edition_mode -> "Edition"

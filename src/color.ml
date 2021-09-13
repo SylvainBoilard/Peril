@@ -2,6 +2,12 @@ open Utils
 
 type rgba = { r: float; g: float; b: float; a: float }
 type hsla = { h: float; s: float; l: float; a: float }
+type suite = {
+    normal: rgba;
+    darker: rgba;
+    brighter: rgba;
+    desaturated: rgba;
+  }
 
 type name =
   | Black
@@ -60,15 +66,9 @@ let rgba_of_hsla c =
   in
   { r; g; b; a = c.a }
 
-let of_hex str =
-  Scanf.sscanf str "#%2x%2x%2x" (fun r g b ->
-      { r = float_of_int r /. 255.0;
-        g = float_of_int g /. 255.0;
-        b = float_of_int b /. 255.0;
-        a = 1.0 })
-
-let to_hex color =
-  Printf.sprintf "#%02x%02x%02x"
-    (truncate (color.r *. 255.0))
-    (truncate (color.g *. 255.0))
-    (truncate (color.b *. 255.0))
+let make_suite c =
+  let normal = rgba_of_hsla c in
+  let darker = rgba_of_hsla { c with l = c.l *. 0.9 } in
+  let brighter = rgba_of_hsla { c with l = c.l *. 1.1 } in
+  let desaturated = rgba_of_hsla { c with s = 0.0; l = 0.25 } in
+  { normal; darker; brighter; desaturated }
