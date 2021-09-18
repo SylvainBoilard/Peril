@@ -179,7 +179,7 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
        game.current_phase <- Battle_SelectTerritory
      ) else
        for i = 1 to useable_armies do
-         if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.3 })) <= 0.128 *. 0.128 then (
+         if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.256 })) <= 0.112 *. 0.112 then (
            game.attacking_armies <- i;
            game.current_phase <- Battle_SelectDefenderCount
          )
@@ -187,7 +187,7 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
   | 0, true, Battle_SelectDefenderCount ->
      let useable_armies = min 2 game.armies.(game.target_territory) in
      for i = 1 to useable_armies do
-       if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.3 -. 0.45 })) <= 0.128 *. 0.128 then (
+       if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.256 -. 0.384 })) <= 0.112 *. 0.112 then (
          game.defending_armies <- i;
          game.current_phase <- Battle_Resolving
        )
@@ -346,26 +346,26 @@ let () =
       GL.enable GL.Blend;
       begin match game.current_phase with
       | Battle_SelectAttackerCount ->
-         Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
          let color_suite = game.players.(game.owner.(game.selected_territory)).color_suite in
          let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
          Render.draw_army_count_selectors
            basic_shader render 3 useable_armies cursor_coords color_suite
-           Vec2.{ x = 0.0; y = -0.3 } Vec2.zero
+           Vec2.{ x = 0.0; y = -0.256 } Vec2.zero
       | Battle_SelectDefenderCount ->
-         Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
-         let c = game.players.(game.owner.(game.selected_territory)).color_suite.normal in
-         GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
-         GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
-         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.125) 0.0;
-         Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4;
          let color_suite = game.players.(game.owner.(game.target_territory)).color_suite in
          let useable_armies = min 2 game.armies.(game.target_territory) in
          Render.draw_army_count_selectors
            basic_shader render 2 useable_armies cursor_coords color_suite
-           Vec2.{ x = 0.3; y = -0.152 } Vec2.{ x = 0.0; y = 0.25 }
+           Vec2.{ x = 0.3; y = -0.128 } Vec2.{ x = 0.0; y = 0.25 };
+         GL.uniform4f basic_shader.ambient_color_location 0.25 0.25 0.25 0.5;
+         GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
+         GL.uniform2f basic_shader.texture_coords_offset_location 0.25 0.25;
+         Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4;
+         let c = game.players.(game.owner.(game.selected_territory)).color_suite.normal in
+         GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b c.a;
+         GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int (game.attacking_armies - 1) *. 0.125) 0.0;
+         Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4
       | Battle_Resolving ->
-         Render.draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
          let dice_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.1) *. 2.0) in
          let arrow_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.3) *. 2.0) in
          Render.draw_battle_resolution
@@ -384,11 +384,11 @@ let () =
         let player = game.players.((game.current_player + i) mod Array.length game.players) in
         if not player.defeated then (
           let y = y_orig -. 0.036 -. float_of_int !row *. 0.136 in
-          let x = if player.reinforcements < 10 then -1.28 else -1.248 in
+          let x = if player.reinforcements < 10 then -1.248 else -1.28 in
           Text.update text_ctx cartridge_text text_font_sans (string_of_int player.reinforcements) Regular 24 ~base_kerning:~-2 StreamDraw;
           Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x; y }) (Color.rgba_of_name Black);
           Text.update text_ctx cartridge_text text_font_sans (string_of_int (List.length player.cards)) Regular 24 StreamDraw;
-          Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x = -1.472; y }) (Color.rgba_of_name Black);
+          Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x = -1.44; y }) (Color.rgba_of_name Black);
           incr row
         )
       done

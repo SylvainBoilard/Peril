@@ -73,19 +73,6 @@ let make_battle_buffer () =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   buffer
 
-let make_ui_background () =
-  let buffer_data = [|
-       0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-      -0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-      -0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-       0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  buffer
-
 let make background_filename =
   let white_texture = load_texture "gfx/pixel.png" in
   let background_texture, background_buffer = load_background background_filename in
@@ -99,7 +86,7 @@ let make background_filename =
   let battle_buffer = make_battle_buffer () in
   let arrow_buffer = GL.genBuffer () in
   let cartridge_buffer = GL.genBuffer () in
-  let ui_background_buffer = make_ui_background () in
+  let ui_background_buffer = GL.genBuffer () in
   { white_texture;
     background_texture; background_buffer;
     border_buffer;
@@ -188,14 +175,32 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
 let draw_army_count_selectors
       basic_shader render selector_count max_count cursor_coords
       (color_suite : Color.suite) (base_coords : Vec2.t) (base_texture_coords : Vec2.t) =
+  let buffer_data =
+    let left, right = base_coords.x -. 0.128, base_coords.x +. 0.128 in
+    let bot = base_coords.y -. 0.128 in
+    let top = bot +. 0.256 *. float_of_int selector_count in
+    [|
+      right; top         ;   0.375; 0.75 ;   0.75; 0.75; 0.75; 0.5;
+      left ; top         ;   0.25 ; 0.75 ;   0.75; 0.75; 0.75; 0.5;
+      right; top -. 0.128;   0.375; 0.875;   0.75; 0.75; 0.75; 0.5;
+      left ; top -. 0.128;   0.25 ; 0.875;   0.75; 0.75; 0.75; 0.5;
+      right; bot +. 0.128;   0.375; 0.875;   0.75; 0.75; 0.75; 0.5;
+      left ; bot +. 0.128;   0.25 ; 0.875;   0.75; 0.75; 0.75; 0.5;
+      right; bot         ;   0.375; 1.0  ;   0.75; 0.75; 0.75; 0.5;
+      left ; bot         ;   0.25 ; 1.0  ;   0.75; 0.75; 0.75; 0.5;
+    |] |> Array1.of_array Float32 C_layout
+  in
+  GL.bindBuffer GL.ArrayBuffer render.ui_background_buffer;
+  GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+  draw_basic basic_shader render.ui_texture render.ui_background_buffer GL.TriangleStrip 0 8;
   for i = 0 to selector_count - 1 do
     let i_f = float_of_int i in
-    let y = base_coords.y +. i_f *. 0.3 in
+    let y = base_coords.y +. i_f *. 0.256 in
     let tx = base_texture_coords.x +. i_f *. 0.125 in
     let c =
       if i + 1 > max_count then
         color_suite.desaturated
-      else if Vec2.(sqr_mag (sub cursor_coords { base_coords with y })) <= 0.128 *. 0.128 then
+      else if Vec2.(sqr_mag (sub cursor_coords { base_coords with y })) <= 0.112 *. 0.112 then
         color_suite.brighter
       else
         color_suite.darker
@@ -209,6 +214,16 @@ let draw_army_count_selectors
 let draw_battle_resolution
       basic_shader render dice_t arrow_t dice_points dice_order
       attacking_armies defending_armies =
+  let buffer_data = [|
+      0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+     -0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+     -0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+      0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
+    |] |> Array1.of_array Float32 C_layout
+  in
+  GL.bindBuffer GL.ArrayBuffer render.ui_background_buffer;
+  GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+  draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
   let dice_t_io = ease_in_out dice_t in
   let dice_t_i_f = ease_in (min 1.0 (dice_t *. 2.0)) in
   let arrow_t_io = ease_in_out arrow_t in
@@ -275,10 +290,10 @@ let draw_game_info_sprites basic_shader render (game : Game.t) =
     let buffer_data =
       Array1.of_array Float32 C_layout @@
         [|
-          -1.472; y_orig +. 0.192;   0.3125; 0.875;   1.0; 1.0; 1.0; 1.0;
-          -1.6  ; y_orig +. 0.192;   0.25  ; 0.875;   1.0; 1.0; 1.0; 1.0;
-          -1.6  ; y_orig +. 0.064;   0.25  ; 1.0  ;   1.0; 1.0; 1.0; 1.0;
-          -1.472; y_orig +. 0.064;   0.3125; 1.0  ;   1.0; 1.0; 1.0; 1.0;
+          -1.472; y_orig +. 0.192;   0.5625; 0.625;   1.0; 1.0; 1.0; 1.0;
+          -1.6  ; y_orig +. 0.192;   0.5   ; 0.625;   1.0; 1.0; 1.0; 1.0;
+          -1.6  ; y_orig +. 0.064;   0.5   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+          -1.472; y_orig +. 0.064;   0.5625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
         |]
     in
     if Game.in_battle_phase game then
@@ -304,37 +319,41 @@ let draw_game_info_sprites basic_shader render (game : Game.t) =
       let x = -1.184 in
       let y = y_orig -. float_of_int !row *. 0.136 in
       let visual_cards_count = min 3 (List.length player.cards) in
-      let card_tx = 0.25 +. 0.0625 *. float_of_int (max 1 visual_cards_count) in
-      let card_a = if visual_cards_count = 0 then 0.25 else 1.0 in
+      let card_tx = 0.5 +. 0.0625 *. float_of_int visual_cards_count in
       let buffer_data =
         Array1.of_array Float32 C_layout @@
-          [|(* color tab *)
-             x +. 0.032; y +. 0.064;   0.421875; 0.625;   c.r; c.g; c.b; 1.0;
-             x         ; y +. 0.064;   0.40625 ; 0.625;   c.r; c.g; c.b; 1.0;
-             x         ; y -. 0.064;   0.40625 ; 0.75 ;   c.r; c.g; c.b; 1.0;
-             x +. 0.032; y -. 0.064;   0.421875; 0.75 ;   c.r; c.g; c.b; 1.0;
-            (* cartridge *)
-             x         ; y +. 0.064;   0.390625; 0.625;   1.0; 1.0; 1.0; 1.0;
-            -1.6       ; y +. 0.064;   0.375   ; 0.625;   1.0; 1.0; 1.0; 1.0;
-            -1.6       ; y -. 0.064;   0.375   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-             x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-             x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-             x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
+          [|(* cartridge *)
+            x         ; y +. 0.064;   0.390625; 0.625;   1.0; 1.0; 1.0; 1.0;
+            x -. 0.416; y +. 0.064;   0.375   ; 0.625;   1.0; 1.0; 1.0; 1.0;
+            x -. 0.416; y -. 0.064;   0.375   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+            x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+            x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+            x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
             (* banner icon *)
-             x -. 0.112; y +. 0.064;   0.3125  ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
-             x -. 0.24 ; y +. 0.064;   0.25    ; 0.75 ;   0.0; 0.0; 0.0; 1.0;
-             x -. 0.24 ; y -. 0.064;   0.25    ; 0.875;   0.0; 0.0; 0.0; 1.0;
-             x -. 0.112; y -. 0.064;   0.3125  ; 0.875;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.08 ; y +. 0.064;   0.5     ; 0.5  ;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.208; y +. 0.064;   0.4375  ; 0.5  ;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.208; y -. 0.064;   0.4375  ; 0.625;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.08 ; y -. 0.064;   0.5     ; 0.625;   0.0; 0.0; 0.0; 1.0;
             (* cards icon *)
-             x -. 0.288; y +. 0.064;   card_tx +. 0.0625; 0.75 ;   0.0; 0.0; 0.0; card_a;
-             x -. 0.416; y +. 0.064;   card_tx          ; 0.75 ;   0.0; 0.0; 0.0; card_a;
-             x -. 0.416; y -. 0.064;   card_tx          ; 0.875;   0.0; 0.0; 0.0; card_a;
-             x -. 0.288; y -. 0.064;   card_tx +. 0.0625; 0.875;   0.0; 0.0; 0.0; card_a;
+            x -. 0.256; y +. 0.064;   card_tx +. 0.0625; 0.5  ;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.384; y +. 0.064;   card_tx          ; 0.5  ;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.384; y -. 0.064;   card_tx          ; 0.625;   0.0; 0.0; 0.0; 1.0;
+            x -. 0.256; y -. 0.064;   card_tx +. 0.0625; 0.625;   0.0; 0.0; 0.0; 1.0;
+            (* tab color *)
+            -1.568    ; y +. 0.064;   0.421875; 0.625;   c.r; c.g; c.b; 1.0;
+            -1.6      ; y +. 0.064;   0.40625 ; 0.625;   c.r; c.g; c.b; 1.0;
+            -1.6      ; y -. 0.064;   0.40625 ; 0.75 ;   c.r; c.g; c.b; 1.0;
+            -1.568    ; y -. 0.064;   0.421875; 0.75 ;   c.r; c.g; c.b; 1.0;
+            (* tab cartridge *)
+            -1.568    ; y +. 0.064;   0.4375  ; 0.625;   1.0; 1.0; 1.0; 1.0;
+            -1.6      ; y +. 0.064;   0.421875; 0.625;   1.0; 1.0; 1.0; 1.0;
+            -1.6      ; y -. 0.064;   0.421875; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+            -1.568    ; y -. 0.064;   0.4375  ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
           |]
       in
       GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
       GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-      draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 4; 4, 6; 10, 4; 14, 4];
+      draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 6; 6, 4; 10, 4; 14, 4; 18, 4];
       incr row
     )
   done
