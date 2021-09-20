@@ -39,6 +39,15 @@ let need_to_animate_dice (game : Game.t) dice_order =
     done;
     !dice_moves
 
+let compute_selector_base_coords (game : Game.t) attacker =
+  let attacking_territory_center = game.map.territories.(game.selected_territory).center in
+  let defending_territory_center = game.map.territories.(game.target_territory).center in
+  match attacking_territory_center.x < defending_territory_center.x, attacker with
+  | true, true -> Vec2.(add attacking_territory_center { x = -0.192; y = -0.256 })
+  | false, true -> Vec2.(add attacking_territory_center { x = 0.192; y = -0.256 })
+  | true, false -> Vec2.(add defending_territory_center { x = 0.192; y = -0.128 })
+  | false, false -> Vec2.(add defending_territory_center { x = -0.192; y = -0.128 })
+
 let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
   match key, action, game.current_phase with
@@ -172,22 +181,27 @@ let mouse_button_callback (game : Game.t) render window button pressed _(*modifi
        game.current_phase <- Battle_SelectTerritory
      )
   | 0, true, Battle_SelectAttackerCount ->
+     let selector_base_coords = compute_selector_base_coords game true in
      let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
-     if cursor_coords.x < -0.5 || cursor_coords.x > 0.5 || cursor_coords.y < -0.5 || cursor_coords.y > 0.5 then (
+     if cursor_coords.x < selector_base_coords.x -. 0.128
+        || cursor_coords.x > selector_base_coords.x +. 0.128
+        || cursor_coords.y < selector_base_coords.y -. 0.128
+        || cursor_coords.y > selector_base_coords.y +. 0.640 then (
        update_selected_territory (-1) game render;
        game.target_territory <- -1;
        game.current_phase <- Battle_SelectTerritory
      ) else
        for i = 1 to useable_armies do
-         if Vec2.(sqr_mag (sub cursor_coords { x = 0.0; y = float_of_int (i - 2) *. 0.256 })) <= 0.112 *. 0.112 then (
+         if Vec2.(sqr_mag (sub cursor_coords (add selector_base_coords { x = 0.0; y = float_of_int (i - 1) *. 0.256 }))) <= 0.112 *. 0.112 then (
            game.attacking_armies <- i;
            game.current_phase <- Battle_SelectDefenderCount
          )
        done
   | 0, true, Battle_SelectDefenderCount ->
+     let selector_base_coords = compute_selector_base_coords game false in
      let useable_armies = min 2 game.armies.(game.target_territory) in
      for i = 1 to useable_armies do
-       if Vec2.(sqr_mag (sub cursor_coords { x = 0.3; y = float_of_int i *. 0.256 -. 0.384 })) <= 0.112 *. 0.112 then (
+       if Vec2.(sqr_mag (sub cursor_coords (add selector_base_coords { x = 0.0; y = float_of_int (i - 1) *. 0.256 }))) <= 0.112 *. 0.112 then (
          game.defending_armies <- i;
          game.current_phase <- Battle_Resolving
        )
@@ -348,17 +362,18 @@ let () =
       | Battle_SelectAttackerCount ->
          let color_suite = game.players.(game.owner.(game.selected_territory)).color_suite in
          let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
+         let base_coords = compute_selector_base_coords game true in
          Render.draw_army_count_selectors
-           basic_shader render 3 useable_armies cursor_coords color_suite
-           Vec2.{ x = 0.0; y = -0.256 } Vec2.zero
+           basic_shader render 3 useable_armies cursor_coords color_suite base_coords Vec2.zero
       | Battle_SelectDefenderCount ->
          let color_suite = game.players.(game.owner.(game.target_territory)).color_suite in
          let useable_armies = min 2 game.armies.(game.target_territory) in
+         let base_coords = compute_selector_base_coords game false in
          Render.draw_army_count_selectors
-           basic_shader render 2 useable_armies cursor_coords color_suite
-           Vec2.{ x = 0.3; y = -0.128 } Vec2.{ x = 0.0; y = 0.25 };
+           basic_shader render 2 useable_armies cursor_coords color_suite base_coords Vec2.{ x = 0.0; y = 0.25 };
+         let base_coords = Vec2.(add (compute_selector_base_coords game true) { x = 0.0; y = 0.256 }) in
          GL.uniform4f basic_shader.ambient_color_location 0.25 0.25 0.25 0.5;
-         GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) 0.0;
+         GL.uniform2f basic_shader.vertex_coords_offset_location base_coords.x base_coords.y;
          GL.uniform2f basic_shader.texture_coords_offset_location 0.25 0.25;
          Render.draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4;
          let c = game.players.(game.owner.(game.selected_territory)).color_suite.normal in
