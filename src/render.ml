@@ -13,7 +13,6 @@ type t = {
     dashed_elem_buffer: GL.buffer;
     ui_texture: GL.texture;
     dice_buffer: GL.buffer;
-    battle_buffer: GL.buffer;
     arrow_buffer: GL.buffer;
     cartridge_buffer: GL.buffer;
     ui_background_buffer: GL.buffer;
@@ -60,19 +59,6 @@ let make_dice_buffer () =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   buffer
 
-let make_battle_buffer () =
-  let buffer_data = [|
-       0.128;  0.128;   0.125; 0.5 ;   1.0; 1.0; 1.0; 1.0;
-      -0.128;  0.128;   0.0  ; 0.5 ;   1.0; 1.0; 1.0; 1.0;
-      -0.128; -0.128;   0.0  ; 0.75;   1.0; 1.0; 1.0; 1.0;
-       0.128; -0.128;   0.125; 0.75;   1.0; 1.0; 1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  buffer
-
 let make background_filename =
   let white_texture = load_texture "gfx/pixel.png" in
   let background_texture, background_buffer = load_background background_filename in
@@ -83,7 +69,6 @@ let make background_filename =
   let dashed_elem_buffer = GL.genBuffer () in
   let ui_texture = load_texture "gfx/ui.png" in
   let dice_buffer = make_dice_buffer () in
-  let battle_buffer = make_battle_buffer () in
   let arrow_buffer = GL.genBuffer () in
   let cartridge_buffer = GL.genBuffer () in
   let ui_background_buffer = GL.genBuffer () in
@@ -93,7 +78,7 @@ let make background_filename =
     dot_texture; dot_buffer;
     dashed_texture; dashed_buffer; dashed_elem_buffer;
     ui_texture;
-    dice_buffer; battle_buffer; arrow_buffer; cartridge_buffer;
+    dice_buffer; arrow_buffer; cartridge_buffer;
     ui_background_buffer }
 
 let update_dashed_buffers render territories selected_territory =
@@ -171,45 +156,6 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
      List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort (first * 2)) list
   end;
   draw_basic_teardown shader
-
-let draw_army_count_selectors
-      basic_shader render selector_count max_count cursor_coords
-      (color_suite : Color.suite) (base_coords : Vec2.t) (base_texture_coords : Vec2.t) =
-  let buffer_data =
-    let left, right = base_coords.x -. 0.128, base_coords.x +. 0.128 in
-    let bot = base_coords.y -. 0.128 in
-    let top = bot +. 0.256 *. float_of_int selector_count in
-    [|
-      right; top         ;   0.375; 0.75 ;   0.75; 0.75; 0.75; 0.5;
-      left ; top         ;   0.25 ; 0.75 ;   0.75; 0.75; 0.75; 0.5;
-      right; top -. 0.128;   0.375; 0.875;   0.75; 0.75; 0.75; 0.5;
-      left ; top -. 0.128;   0.25 ; 0.875;   0.75; 0.75; 0.75; 0.5;
-      right; bot +. 0.128;   0.375; 0.875;   0.75; 0.75; 0.75; 0.5;
-      left ; bot +. 0.128;   0.25 ; 0.875;   0.75; 0.75; 0.75; 0.5;
-      right; bot         ;   0.375; 1.0  ;   0.75; 0.75; 0.75; 0.5;
-      left ; bot         ;   0.25 ; 1.0  ;   0.75; 0.75; 0.75; 0.5;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  GL.bindBuffer GL.ArrayBuffer render.ui_background_buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
-  draw_basic basic_shader render.ui_texture render.ui_background_buffer GL.TriangleStrip 0 8;
-  for i = 0 to selector_count - 1 do
-    let i_f = float_of_int i in
-    let y = base_coords.y +. i_f *. 0.256 in
-    let tx = base_texture_coords.x +. i_f *. 0.125 in
-    let c =
-      if i + 1 > max_count then
-        color_suite.desaturated
-      else if Vec2.(sqr_mag (sub cursor_coords { base_coords with y })) <= 0.112 *. 0.112 then
-        color_suite.brighter
-      else
-        color_suite.darker
-    in
-    GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b 1.0;
-    GL.uniform2f basic_shader.vertex_coords_offset_location base_coords.x y;
-    GL.uniform2f basic_shader.texture_coords_offset_location tx base_texture_coords.y;
-    draw_basic basic_shader render.ui_texture render.battle_buffer GL.TriangleFan 0 4
-  done
 
 let draw_battle_resolution
       basic_shader render dice_t arrow_t dice_points dice_order
