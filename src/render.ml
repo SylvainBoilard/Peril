@@ -12,10 +12,7 @@ type t = {
     dashed_buffer: GL.buffer;
     dashed_elem_buffer: GL.buffer;
     ui_texture: GL.texture;
-    dice_buffer: GL.buffer;
-    arrow_buffer: GL.buffer;
     cartridge_buffer: GL.buffer;
-    ui_background_buffer: GL.buffer;
   }
 
 let load_background filename =
@@ -46,19 +43,6 @@ let load_dot () =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
-let make_dice_buffer () =
-  let buffer_data = [|
-       0.128;  0.128;   0.125; 0.0 ;   1.0; 1.0; 1.0; 1.0;
-      -0.128;  0.128;   0.0  ; 0.0 ;   1.0; 1.0; 1.0; 1.0;
-      -0.128; -0.128;   0.0  ; 0.25;   1.0; 1.0; 1.0; 1.0;
-       0.128; -0.128;   0.125; 0.25;   1.0; 1.0; 1.0; 1.0;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
-  buffer
-
 let make background_filename =
   let white_texture = load_texture "gfx/pixel.png" in
   let background_texture, background_buffer = load_background background_filename in
@@ -68,18 +52,14 @@ let make background_filename =
   let dashed_buffer = GL.genBuffer () in
   let dashed_elem_buffer = GL.genBuffer () in
   let ui_texture = load_texture "gfx/ui.png" in
-  let dice_buffer = make_dice_buffer () in
-  let arrow_buffer = GL.genBuffer () in
   let cartridge_buffer = GL.genBuffer () in
-  let ui_background_buffer = GL.genBuffer () in
   { white_texture;
     background_texture; background_buffer;
     border_buffer;
     dot_texture; dot_buffer;
     dashed_texture; dashed_buffer; dashed_elem_buffer;
     ui_texture;
-    dice_buffer; arrow_buffer; cartridge_buffer;
-    ui_background_buffer }
+    cartridge_buffer }
 
 let update_dashed_buffers render territories selected_territory =
   let territory : Map.territory = territories.(selected_territory) in
@@ -156,79 +136,6 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
      List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort (first * 2)) list
   end;
   draw_basic_teardown shader
-
-let draw_battle_resolution
-      basic_shader render dice_t arrow_t dice_points dice_order
-      attacking_armies defending_armies =
-  let buffer_data = [|
-      0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-     -0.5;  0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-     -0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-      0.5; -0.5;   0.0; 0.0;   0.5; 0.5; 0.5; 0.5;
-    |] |> Array1.of_array Float32 C_layout
-  in
-  GL.bindBuffer GL.ArrayBuffer render.ui_background_buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
-  draw_basic basic_shader render.white_texture render.ui_background_buffer GL.TriangleFan 0 4;
-  let dice_t_io = ease_in_out dice_t in
-  let dice_t_i_f = ease_in (min 1.0 (dice_t *. 2.0)) in
-  let arrow_t_io = ease_in_out arrow_t in
-  let arrow_t_i_f = ease_in (min 1.0 (arrow_t *. 3.0)) in
-  let min_armies = min attacking_armies defending_armies in
-  for i = 0 to min_armies - 1 do
-    let x = Float.lerp (-0.172) 0.140 arrow_t_io in
-    let y = float_of_int (i - 1) *. -0.3 in
-    let buffer_data =
-      Array1.of_array Float32 C_layout @@
-        if dice_points.(i) > dice_points.(i + 3) then
-          [|   x         ; y +. 0.032;   0.390625; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f;
-              -0.172     ; y +. 0.032;   0.375   ; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f;
-              -0.172     ; y -. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
-               x         ; y -. 0.032;   0.390625; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
-               x +. 0.032; y -. 0.032;   0.40625 ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
-               x +. 0.032; y +. 0.032;   0.40625 ; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f |]
-        else
-          [| -.x         ; y +. 0.032;   0.390625; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
-             -.x -. 0.032; y +. 0.032;   0.40625 ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
-             -.x -. 0.032; y -. 0.032;   0.40625 ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
-             -.x         ; y -. 0.032;   0.390625; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
-               0.172     ; y -. 0.032;   0.375   ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
-               0.172     ; y +. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f |]
-    in
-    GL.bindBuffer GL.ArrayBuffer render.arrow_buffer;
-    GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-    draw_basic basic_shader render.ui_texture render.arrow_buffer GL.TriangleFan 0 6
-  done;
-  for i = 0 to attacking_armies - 1 do
-    let o = dice_order.(i) in
-    let y =
-      if i < min_armies then (
-        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
-        Float.lerp (float_of_int (o - 1)) (float_of_int (i - 1)) dice_t_io *. -0.3
-      ) else (
-        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 (1.0 -. dice_t_i_f);
-        Float.lerp (float_of_int (o - 1)) (float_of_int (o - 1) +. 0.5) dice_t_i_f *. -0.3
-      )
-    in
-    GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) y;
-    GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
-    draw_basic basic_shader render.ui_texture render.dice_buffer GL.TriangleFan 0 4
-  done;
-  for i = 0 to defending_armies - 1 do
-    let o = dice_order.(i + 3) in
-    let y =
-      if i < min_armies then (
-        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
-        Float.lerp (float_of_int (o - 1)) (float_of_int (i - 1)) dice_t_io *. -0.3
-      ) else (
-        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 (1.0 -. dice_t_i_f);
-        Float.lerp (float_of_int (o - 1)) (float_of_int (o - 1) +. 0.5) dice_t_i_f *. -0.3
-      )
-    in
-    GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 y;
-    GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.25;
-    draw_basic basic_shader render.ui_texture render.dice_buffer GL.TriangleFan 0 4
-  done
 
 let draw_game_info_sprites basic_shader render (game : Game.t) =
   let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in

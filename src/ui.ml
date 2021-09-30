@@ -100,3 +100,120 @@ let draw_army_count_selector basic_shader selector_data cursor_coords =
     GL.uniform2f basic_shader.texture_coords_offset_location tx selector_data.base_texture_coords.y;
     Render.draw_basic basic_shader selector_data.texture selector_data.vertex_buffer GL.TriangleFan 8 4
   done
+
+type battle_resolution = {
+    vertex_buffer: GL.buffer;
+    elem_buffer: GL.buffer;
+    arrow_buffer: GL.buffer;
+    texture: GL.texture;
+    mutable anim_time: float;
+  }
+
+let make_battle_resolution texture =
+  let vertex_buffer_data =
+    [|(* background *)
+       0.532;  0.532;   0.375 ; 0.75 ;   0.5; 0.5; 0.5; 0.5;
+       0.404;  0.532;   0.3125; 0.75 ;   0.5; 0.5; 0.5; 0.5;
+      -0.404;  0.532;   0.3125; 0.75 ;   0.5; 0.5; 0.5; 0.5;
+      -0.532;  0.532;   0.25  ; 0.75 ;   0.5; 0.5; 0.5; 0.5;
+       0.532;  0.404;   0.375 ; 0.875;   0.5; 0.5; 0.5; 0.5;
+       0.404;  0.404;   0.3125; 0.875;   0.5; 0.5; 0.5; 0.5;
+      -0.404;  0.404;   0.3125; 0.875;   0.5; 0.5; 0.5; 0.5;
+      -0.532;  0.404;   0.25  ; 0.875;   0.5; 0.5; 0.5; 0.5;
+       0.532; -0.404;   0.375 ; 0.875;   0.5; 0.5; 0.5; 0.5;
+       0.404; -0.404;   0.3125; 0.875;   0.5; 0.5; 0.5; 0.5;
+      -0.404; -0.404;   0.3125; 0.875;   0.5; 0.5; 0.5; 0.5;
+      -0.532; -0.404;   0.25  ; 0.875;   0.5; 0.5; 0.5; 0.5;
+       0.532; -0.532;   0.375 ; 1.0  ;   0.5; 0.5; 0.5; 0.5;
+       0.404; -0.532;   0.3125; 1.0  ;   0.5; 0.5; 0.5; 0.5;
+      -0.404; -0.532;   0.3125; 1.0  ;   0.5; 0.5; 0.5; 0.5;
+      -0.532; -0.532;   0.25  ; 1.0  ;   0.5; 0.5; 0.5; 0.5;
+      (* dice *)
+       0.128;  0.128;   0.125 ; 0.0  ;   1.0; 1.0; 1.0; 1.0;
+      -0.128;  0.128;   0.0   ; 0.0  ;   1.0; 1.0; 1.0; 1.0;
+      -0.128; -0.128;   0.0   ; 0.25 ;   1.0; 1.0; 1.0; 1.0;
+       0.128; -0.128;   0.125 ; 0.25 ;   1.0; 1.0; 1.0; 1.0;
+    |] |> Array1.of_array Float32 C_layout
+  in
+  let elem_buffer_data =
+    [|(* background stripes *)
+      4; 0; 5; 1; 6; 2; 7; 3; (* top *)
+      8; 4; 9; 5; 10; 6; 11; 7; (* mid *)
+      12; 8; 13; 9; 14; 10; 15; 11; (* bottom *)
+    |] |> Array1.of_array Int16_unsigned C_layout
+  in
+  let vertex_buffer = GL.genBuffer () in
+  GL.bindBuffer GL.ArrayBuffer vertex_buffer;
+  GL.bufferData GL.ArrayBuffer vertex_buffer_data GL.StaticDraw;
+  let elem_buffer = GL.genBuffer () in
+  GL.bindBuffer GL.ArrayBuffer elem_buffer;
+  GL.bufferData GL.ArrayBuffer elem_buffer_data GL.StaticDraw;
+  { vertex_buffer; elem_buffer; arrow_buffer = GL.genBuffer (); texture; anim_time = 0.0 }
+
+let draw_battle_resolution
+      basic_shader battle_resolution_data dice_points dice_order
+      attacking_armies defending_armies =
+  Render.draw_basic_multi
+    basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer
+    ~elem_buffer:battle_resolution_data.elem_buffer TriangleStrip [0, 8; 8, 8; 16, 8];
+  let dice_t = Float.clamp 0.0 1.0 ((battle_resolution_data.anim_time -. 1.1) *. 2.0) in
+  let dice_t_io = ease_in_out dice_t in
+  let dice_t_i_f = ease_in (min 1.0 (dice_t *. 2.0)) in
+  let arrow_t = Float.clamp 0.0 1.0 ((battle_resolution_data.anim_time -. 1.3) *. 2.0) in
+  let arrow_t_io = ease_in_out arrow_t in
+  let arrow_t_i_f = ease_in (min 1.0 (arrow_t *. 3.0)) in
+  let min_armies = min attacking_armies defending_armies in
+  for i = 0 to min_armies - 1 do
+    let x = Float.lerp (-0.172) 0.140 arrow_t_io in
+    let y = float_of_int (i - 1) *. -0.3 in
+    let buffer_data =
+      Array1.of_array Float32 C_layout @@
+        if dice_points.(i) > dice_points.(i + 3) then
+          [|   x         ; y +. 0.032;   0.390625; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f;
+              -0.172     ; y +. 0.032;   0.375   ; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f;
+              -0.172     ; y -. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+               x         ; y -. 0.032;   0.390625; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+               x +. 0.032; y -. 0.032;   0.40625 ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+               x +. 0.032; y +. 0.032;   0.40625 ; 0.5   ;   1.0; 1.0; 1.0; arrow_t_i_f |]
+        else
+          [| -.x         ; y +. 0.032;   0.390625; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+             -.x -. 0.032; y +. 0.032;   0.40625 ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f;
+             -.x -. 0.032; y -. 0.032;   0.40625 ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+             -.x         ; y -. 0.032;   0.390625; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+               0.172     ; y -. 0.032;   0.375   ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
+               0.172     ; y +. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f |]
+    in
+    GL.bindBuffer GL.ArrayBuffer battle_resolution_data.arrow_buffer;
+    GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
+    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.arrow_buffer GL.TriangleFan 0 6
+  done;
+  for i = 0 to attacking_armies - 1 do
+    let o = dice_order.(i) in
+    let y =
+      if i < min_armies then (
+        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
+        Float.lerp (float_of_int (o - 1)) (float_of_int (i - 1)) dice_t_io *. -0.3
+      ) else (
+        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 (1.0 -. dice_t_i_f);
+        Float.lerp (float_of_int (o - 1)) (float_of_int (o - 1) +. 0.5) dice_t_i_f *. -0.3
+      )
+    in
+    GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) y;
+    GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
+    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer GL.TriangleFan 16 4
+  done;
+  for i = 0 to defending_armies - 1 do
+    let o = dice_order.(i + 3) in
+    let y =
+      if i < min_armies then (
+        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
+        Float.lerp (float_of_int (o - 1)) (float_of_int (i - 1)) dice_t_io *. -0.3
+      ) else (
+        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 (1.0 -. dice_t_i_f);
+        Float.lerp (float_of_int (o - 1)) (float_of_int (o - 1) +. 0.5) dice_t_i_f *. -0.3
+      )
+    in
+    GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 y;
+    GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.25;
+    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer GL.TriangleFan 16 4
+  done

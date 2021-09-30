@@ -289,6 +289,7 @@ let () =
   let armies_text, armies_outline = Text.create (), Text.create () in
   let attacker_count_selector_template = Ui.make_army_count_selector_template 3 render.ui_texture Vec2.{ x = 0.0; y = 0.5 } in
   let defender_count_selector_template = Ui.make_army_count_selector_template 2 render.ui_texture Vec2.{ x = 0.0; y = 0.75 } in
+  let battle_resolution = Ui.make_battle_resolution render.ui_texture in
   let game =
     let territory_count = Array.length map.territories in
     let cards_territories = Array.init territory_count Fun.id in
@@ -312,7 +313,6 @@ let () =
   let dice_order = Array.init 5 (fun i -> i mod 3) in
   let dice_sorted = ref false in
   let dashed_animation_time = ref 0.0 in
-  let dice_animation_time = ref 0.0 in
   GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game render attacker_count_selector_template defender_count_selector_template)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
@@ -382,10 +382,9 @@ let () =
          Ui.draw_army_count_selector basic_shader !attacker_count_selector cursor_coords;
          Ui.draw_army_count_selector basic_shader !defender_count_selector cursor_coords;
       | Battle_Resolving ->
-         let dice_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.1) *. 2.0) in
-         let arrow_t = Float.clamp 0.0 1.0 ((!dice_animation_time -. 1.3) *. 2.0) in
-         Render.draw_battle_resolution
-           basic_shader render dice_t arrow_t dice_points dice_order game.attacking_armies game.defending_armies
+         battle_resolution.anim_time <- battle_resolution.anim_time +. 1.0 /. 60.0;
+         Ui.draw_battle_resolution
+           basic_shader battle_resolution dice_points dice_order game.attacking_armies game.defending_armies
       | _ -> ()
       end;
       GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
@@ -509,9 +508,8 @@ let () =
     );
 
     if game.current_phase = Battle_Resolving then (
-      dice_animation_time := !dice_animation_time +. 1.0 /. 60.0;
-      if !dice_animation_time < 1.0 then (
-        let t = sqrt !dice_animation_time in
+      if battle_resolution.anim_time < 1.0 then (
+        let t = sqrt battle_resolution.anim_time in
         for i = 0 to 4 do
           if Random.float 1.01 > t then
             dice_points.(i) <- Random.int 6
@@ -520,9 +518,9 @@ let () =
         sort_dice dice_points dice_order 0 game.attacking_armies;
         sort_dice dice_points dice_order 3 game.defending_armies;
         if not (need_to_animate_dice game dice_order) then
-          dice_animation_time := 1.2;
+          battle_resolution.anim_time <- 1.2;
         dice_sorted := true
-      ) else if !dice_animation_time >= 3.0 then (
+      ) else if battle_resolution.anim_time >= 3.0 then (
         let min_armies = min game.attacking_armies game.defending_armies in
         let atk_i, def_i = game.selected_territory, game.target_territory in
         let atk_dead, def_dead = ref 0, ref 0 in
@@ -560,7 +558,7 @@ let () =
           game.target_territory <- -1;
           game.current_phase <- Battle_SelectTerritory
         );
-        dice_animation_time := 0.0;
+        battle_resolution.anim_time <- 0.0;
         dice_sorted := false;
         for i = 0 to 4 do
           dice_order.(i) <- i mod 3
