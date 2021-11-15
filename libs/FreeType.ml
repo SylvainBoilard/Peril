@@ -19,6 +19,7 @@ module Face =
     external getKerning :
       face:t -> left:int -> right:int -> mode:kerning_mode -> int
       = "caml_FT_Get_Kerning"
+    external getScaledHeight : face:t -> int = "caml_FT_Get_Scaled_Height"
   end
 
 module Stroker =

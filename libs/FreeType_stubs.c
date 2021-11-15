@@ -96,6 +96,11 @@ CAMLprim value caml_FT_Get_Kerning(
     return Val_int(kerning.x);
 }
 
+CAMLprim value caml_FT_Get_Scaled_Height(value face)
+{
+    return Val_int(Cptr_val(FT_Face, face)->size->metrics.height);
+}
+
 CAMLprim value caml_FT_Stroker_New(CAMLvoid)
 {
     FT_Stroker stroker;
