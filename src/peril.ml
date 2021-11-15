@@ -56,7 +56,7 @@ let create_selector template (game : Game.t) attacker =
   in
   Ui.make_army_count_selector_from_template template center color_suite useable_armies
 
-let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) =
+let key_callback (game : Game.t) card_info_tooltip window key _(*scancode*) action _(*modifiers*) =
   let open GLFW in
   match key, action, game.current_phase with
   | Escape, Press, _ -> setWindowShouldClose window true
@@ -86,6 +86,8 @@ let key_callback (game : Game.t) window key _(*scancode*) action _(*modifiers*) 
   | Space, Press, Battle_SelectTerritory ->
      if game.territory_captured then (
        game.players.(game.current_player).cards <- game.next_card :: game.players.(game.current_player).cards;
+       if game.current_player = 0 then
+         Ui.update_card_info_tooltip card_info_tooltip game.players.(0).cards game;
        game.next_card <- game.next_card + 1;
        game.territory_captured <- false
      );
@@ -290,6 +292,7 @@ let () =
   let attacker_count_selector_template = Ui.make_army_count_selector_template 3 render.ui_texture Vec2.{ x = 0.0; y = 0.5 } in
   let defender_count_selector_template = Ui.make_army_count_selector_template 2 render.ui_texture Vec2.{ x = 0.0; y = 0.75 } in
   let battle_resolution = Ui.make_battle_resolution render.ui_texture in
+  let card_info_tooltip = Ui.make_card_info_tooltip render.white_texture text_ctx text_font_sans in
   let game =
     let territory_count = Array.length map.territories in
     let cards_territories = Array.init territory_count Fun.id in
@@ -313,7 +316,7 @@ let () =
   let dice_order = Array.init 5 (fun i -> i mod 3) in
   let dice_sorted = ref false in
   let dashed_animation_time = ref 0.0 in
-  GLFW.setKeyCallback window (Some (key_callback game)) |> ignore;
+  GLFW.setKeyCallback window (Some (key_callback game card_info_tooltip)) |> ignore;
   GLFW.setMouseButtonCallback window (Some (mouse_button_callback game render attacker_count_selector_template defender_count_selector_template)) |> ignore;
   GLFW.setCursorPosCallback window (Some (cursor_pos_callback game)) |> ignore;
   let frame_time = ref 0.0 in
@@ -406,7 +409,19 @@ let () =
           Text.draw text_ctx cartridge_text (frame_of_world_coords Vec2.{ x = -1.44; y }) (Color.rgba_of_name Black);
           incr row
         )
-      done
+      done;
+
+      if game.players.(0).cards <> []
+         && -1.568 <= cursor_coords.x && cursor_coords.x < -1.44
+         && -0.724 <= cursor_coords.y && cursor_coords.y < -0.596 then (
+        GL.useProgram basic_shader.program;
+        GL.activeTexture 0;
+        GL.uniform1i basic_shader.texture_location 0;
+        GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
+        GL.enable GL.Blend;
+        Ui.draw_card_info_tooltip basic_shader card_info_tooltip { x = -1.568; y = -0.588 };
+        GL.disable GL.Blend
+      )
     ) else ( (* !edition_mode *)
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
       let border_data = Array1.create Float32 C_layout (vertex_count * 8) in
