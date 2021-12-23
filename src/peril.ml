@@ -10,8 +10,22 @@ let defender_count_selector = ref (Obj.magic () : Ui.army_count_selector)
 let update_selected_territory territory (game : Game.t) render =
   if territory <> game.selected_territory then (
     game.selected_territory <- territory;
-    if territory <> -1 then
-      Render.update_dashed_buffers render game.map.territories territory
+    if territory <> -1 then (
+      let target_filter =
+        if Game.in_battle_phase game
+        then (fun i -> game.owner.(i) <> game.owner.(territory))
+        else (fun i -> game.owner.(i) = game.owner.(territory))
+      in
+      let targets =
+        Array.to_seq game.map.territories.(territory).adjacent
+        |> Seq.filter_map (fun i ->
+               if target_filter i
+               then Some game.map.territories.(i).center
+               else None)
+        |> List.of_rev_seq
+      in
+      Render.update_dashed_buffers render game.map.territories.(territory).center targets
+    )
   )
 
 let sort_dice points order offset len =
@@ -183,7 +197,10 @@ let mouse_button_callback
        ) else if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
          game.current_phase <- Battle_SelectAttackerCount;
-         attacker_count_selector := create_selector attacker_count_selector_template game true
+         attacker_count_selector := create_selector attacker_count_selector_template game true;
+         Render.update_dashed_buffers render
+           game.map.territories.(game.selected_territory).center
+           [game.map.territories.(clicked_territory).center]
        ) else (
          update_selected_territory (-1) game render;
          game.current_phase <- Battle_SelectTerritory
@@ -230,7 +247,10 @@ let mouse_button_callback
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
        if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
-         game.current_phase <- Move_Move
+         game.current_phase <- Move_Move;
+         Render.update_dashed_buffers render
+           game.map.territories.(game.selected_territory).center
+           [game.map.territories.(clicked_territory).center]
        ) else if Game.territory_can_move game clicked_territory then
          update_selected_territory clicked_territory game render
        else (
@@ -334,19 +354,11 @@ let () =
 
     if not !edition_mode then (
       if game.selected_territory <> -1 then (
-        let filter = match game.current_phase with
-          | _ when game.target_territory <> -1 -> (=) game.target_territory
-          | Battle_SelectTarget -> fun i -> game.owner.(i) <> game.current_player
-          | Move_SelectDestination -> fun i -> game.owner.(i) = game.current_player
-          | _ -> assert false
-        in
-        let adjacent = game.map.territories.(game.selected_territory).adjacent in
-        let dashed_draws = Render.select_dashed_draws filter adjacent in
         GL.uniform2f basic_shader.texture_coords_offset_location !dashed_animation_time 0.0;
         GL.lineWidth 3.0;
-        Render.draw_basic_multi
+        Render.draw_basic
           basic_shader render.dashed_texture render.dashed_buffer
-          ~elem_buffer:render.dashed_elem_buffer GL.Lines dashed_draws;
+          ~elem_buffer:render.dashed_elem_buffer GL.Lines 0 render.dashed_elem_count;
         GL.lineWidth 1.0;
         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
       );

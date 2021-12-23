@@ -11,6 +11,7 @@ type t = {
     dashed_texture: GL.texture;
     dashed_buffer: GL.buffer;
     dashed_elem_buffer: GL.buffer;
+    mutable dashed_elem_count: int;
     ui_texture: GL.texture;
     game_state_buffer: GL.buffer;
     cartridge_buffer: GL.buffer;
@@ -72,51 +73,35 @@ let make background_filename =
     background_texture; background_buffer;
     border_buffer;
     dot_texture; dot_buffer;
-    dashed_texture; dashed_buffer; dashed_elem_buffer;
+    dashed_texture; dashed_buffer; dashed_elem_buffer; dashed_elem_count = 0;
     ui_texture;
     game_state_buffer;
     cartridge_buffer }
 
-let update_dashed_buffers render territories selected_territory =
-  let territory : Map.territory = territories.(selected_territory) in
-  let adj_count = Array.length territory.adjacent in
-  let center = territory.center in
-  let vertex_data = Array1.create Float32 C_layout ((adj_count + 1) * 8) in
+let update_dashed_buffers render (origin : Vec2.t) targets =
+  let target_count = List.length targets in
+  let vertex_data = Array1.create Float32 C_layout ((target_count + 1) * 8) in
   let sub_0 = Array1.sub vertex_data 0 8 in
-  [| center.x; center.y; 0.0; 0.0; 1.0; 1.0; 1.0; 1.0 |]
+  [| origin.x; origin.y; 0.0; 0.0; 1.0; 1.0; 1.0; 1.0 |]
   |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub_0;
-  Array.iteri (fun i a ->
-      let t = territories.(a) in
+  List.iteri (fun i target ->
       let sub = Array1.sub vertex_data ((i + 1) * 8) 8 in
-      let target = t.center in
-      let dist = Vec2.(mag (sub center target)) in
+      let dist = Vec2.(mag (sub origin target)) in
       [| target.x; target.y; dist *. -8.0; 0.0; 0.5; 0.5; 0.5; 1.0 |]
       |> Array1.of_array Float32 C_layout |> Fun.flip Array1.blit sub
-    ) territory.adjacent;
-  let elem_data = Array1.create Int16_unsigned C_layout (adj_count * 2) in
-  for i = 0 to adj_count - 1 do
+    ) targets;
+  let elem_count = target_count * 2 in
+  let elem_data = Array1.create Int16_unsigned C_layout elem_count in
+  for i = 0 to target_count - 1 do
     let offset = i * 2 in
     elem_data.{offset} <- 0;
     elem_data.{offset + 1} <- i + 1
   done;
+  render.dashed_elem_count <- elem_count;
   GL.bindBuffer GL.ArrayBuffer render.dashed_buffer;
   GL.bufferData GL.ArrayBuffer vertex_data GL.DynamicDraw;
   GL.bindBuffer GL.ElementArrayBuffer render.dashed_elem_buffer;
   GL.bufferData GL.ElementArrayBuffer elem_data GL.DynamicDraw
-
-let select_dashed_draws f adjacent =
-  let len = Array.length adjacent in
-  let rec aux acc = function
-    | i when i = len -> acc
-    | i when f adjacent.(i) ->
-       begin match acc with
-       | (first, count) :: tl when (first + count) / 2 = i ->
-          aux ((first, count + 2) :: tl) (i + 1)
-       | _ -> aux ((i * 2, 2) :: acc) (i + 1)
-       end
-    | i -> aux acc (i + 1)
-  in
-  aux [] 0
 
 let draw_basic_prepare shader texture buffer =
   GL.bindTexture GL.Texture2D texture;

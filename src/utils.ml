@@ -21,6 +21,13 @@ module List =
         | [] -> raise Not_found
       in
       aux l
+
+    let of_rev_seq seq =
+      let rec aux acc seq = match seq () with
+        | Seq.Nil -> acc
+        | Cons (seq_hd, seq_tl) -> aux (seq_hd :: acc) seq_tl
+      in
+      aux [] seq
   end
 
 module Array =
