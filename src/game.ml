@@ -54,6 +54,18 @@ let in_move_phase game = match game.current_phase with
     -> true
   | _ -> false
 
+let territory_can_attack game territory =
+  game.armies.(territory) > 1
+  && Array.exists (fun i ->
+         game.owner.(i) <> game.owner.(territory)
+       ) game.map.territories.(territory).adjacent
+
+let territory_can_move game territory =
+  game.armies.(territory) > 1
+  && Array.exists (fun i ->
+         game.owner.(i) = game.owner.(territory)
+       ) game.map.territories.(territory).adjacent
+
 let compute_reinforcements game player =
   let by_territories =
     Array.fold_left (fun c o -> if o = player then c + 1 else c) 0 game.owner

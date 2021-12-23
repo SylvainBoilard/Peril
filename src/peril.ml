@@ -165,8 +165,8 @@ let mouse_button_callback
          game.current_phase <- Battle_SelectTerritory
      )
   | 0, true, Battle_SelectTerritory ->
-     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1
-        && Array.exists (fun i -> game.owner.(i) <> game.current_player) game.map.territories.(clicked_territory).adjacent then (
+     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player
+        && Game.territory_can_attack game clicked_territory then (
        update_selected_territory clicked_territory game render;
        game.current_phase <- Battle_SelectTarget
      ) else
@@ -174,8 +174,7 @@ let mouse_button_callback
   | 0, true, Battle_SelectTarget ->
      if clicked_territory <> -1 then (
        if game.owner.(clicked_territory) = game.current_player then (
-         if game.armies.(clicked_territory) > 1
-            && Array.exists (fun i -> game.owner.(i) <> game.current_player) game.map.territories.(clicked_territory).adjacent then
+         if Game.territory_can_attack game clicked_territory then
            update_selected_territory clicked_territory game render
          else (
            update_selected_territory (-1) game render;
@@ -221,8 +220,8 @@ let mouse_button_callback
        game.current_phase <- Battle_Resolving
      )
   | 0, true, Move_SelectTerritory ->
-     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player && game.armies.(clicked_territory) > 1
-        && Array.exists (fun i -> game.owner.(i) = game.current_player) game.map.territories.(clicked_territory).adjacent then (
+     if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player
+        && Game.territory_can_move game clicked_territory then (
        update_selected_territory clicked_territory game render;
        game.current_phase <- Move_SelectDestination
      ) else
@@ -232,8 +231,7 @@ let mouse_button_callback
        if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
          game.current_phase <- Move_Move
-       ) else if game.armies.(clicked_territory) > 1
-                 && Array.exists (fun i -> game.owner.(i) = game.current_player) game.map.territories.(clicked_territory).adjacent then
+       ) else if Game.territory_can_move game clicked_territory then
          update_selected_territory clicked_territory game render
        else (
          update_selected_territory (-1) game render;
