@@ -86,8 +86,8 @@ let key_callback (game : Game.t) card_info_tooltip window key _(*scancode*) acti
   | Space, Press, Battle_SelectTerritory ->
      if game.territory_captured then (
        game.players.(game.current_player).cards <- game.next_card :: game.players.(game.current_player).cards;
-       if game.current_player = 0 then
-         Ui.update_card_info_tooltip card_info_tooltip game.players.(0).cards game;
+       if game.current_player = game.our_player then
+         Ui.update_card_info_tooltip card_info_tooltip game.players.(game.our_player).cards game;
        game.next_card <- game.next_card + 1;
        game.territory_captured <- false
      );
@@ -303,7 +303,7 @@ let () =
         [| Player.make "Roland" (Color.hsla_of_name Red);
            Player.make "Valérie" { (Color.hsla_of_name Green) with l = 0.4 };
            Player.make "Basile" { (Color.hsla_of_name Blue) with l = 0.6 } |];
-      defeated_count = 0; current_player = 0; current_phase = Claim;
+      our_player = 0; defeated_count = 0; current_player = 0; current_phase = Claim;
       selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
       attacking_armies = 0; defending_armies = 0; territory_captured = false;
       map;
@@ -399,7 +399,7 @@ let () =
       let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
       let row = ref game.defeated_count in
       for i = 0 to Array.length game.players - 1 do
-        let player = game.players.((game.current_player + i) mod Array.length game.players) in
+        let player = game.players.((game.our_player + i) mod Array.length game.players) in
         if not player.defeated then (
           let y = y_orig -. 0.036 -. float_of_int !row *. 0.136 in
           let x = if player.reinforcements < 10 then -1.248 else -1.28 in
@@ -411,15 +411,16 @@ let () =
         )
       done;
 
-      if game.players.(0).cards <> []
+      let y_orig = -1.004 +. float_of_int (Array.length game.players - game.defeated_count) *. 0.136 in
+      if game.players.(game.our_player).cards <> []
          && -1.568 <= cursor_coords.x && cursor_coords.x < -1.44
-         && -0.724 <= cursor_coords.y && cursor_coords.y < -0.596 then (
+         && y_orig -. 0.128 <= cursor_coords.y && cursor_coords.y < y_orig then (
         GL.useProgram basic_shader.program;
         GL.activeTexture 0;
         GL.uniform1i basic_shader.texture_location 0;
         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
         GL.enable GL.Blend;
-        Ui.draw_card_info_tooltip basic_shader card_info_tooltip { x = -1.568; y = -0.588 };
+        Ui.draw_card_info_tooltip basic_shader card_info_tooltip { x = -1.568; y = y_orig +. 0.008 };
         GL.disable GL.Blend
       )
     ) else ( (* !edition_mode *)

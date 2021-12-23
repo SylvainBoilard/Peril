@@ -12,6 +12,7 @@ type t = {
     dashed_buffer: GL.buffer;
     dashed_elem_buffer: GL.buffer;
     ui_texture: GL.texture;
+    game_state_buffer: GL.buffer;
     cartridge_buffer: GL.buffer;
   }
 
@@ -43,6 +44,19 @@ let load_dot () =
   GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
   texture, buffer
 
+let load_game_state_buffer () =
+  let buffer_data = [|
+      0.128; 0.128;   0.5625; 0.625;   1.0; 1.0; 1.0; 1.0;
+      0.0  ; 0.128;   0.5   ; 0.625;   1.0; 1.0; 1.0; 1.0;
+      0.0  ; 0.0  ;   0.5   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+      0.128; 0.0  ;   0.5625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+    |] |> Array1.of_array Float32 C_layout
+  in
+  let buffer = GL.genBuffer () in
+  GL.bindBuffer GL.ArrayBuffer buffer;
+  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
+  buffer
+
 let make background_filename =
   let white_texture = load_texture "gfx/pixel.png" in
   let background_texture, background_buffer = load_background background_filename in
@@ -52,6 +66,7 @@ let make background_filename =
   let dashed_buffer = GL.genBuffer () in
   let dashed_elem_buffer = GL.genBuffer () in
   let ui_texture = load_texture "gfx/ui.png" in
+  let game_state_buffer = load_game_state_buffer () in
   let cartridge_buffer = GL.genBuffer () in
   { white_texture;
     background_texture; background_buffer;
@@ -59,6 +74,7 @@ let make background_filename =
     dot_texture; dot_buffer;
     dashed_texture; dashed_buffer; dashed_elem_buffer;
     ui_texture;
+    game_state_buffer;
     cartridge_buffer }
 
 let update_dashed_buffers render territories selected_territory =
@@ -138,37 +154,33 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
   draw_basic_teardown shader
 
 let draw_game_info_sprites basic_shader render (game : Game.t) =
-  let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
   if Game.in_main_loop_phase game then (
-    let buffer_data =
-      Array1.of_array Float32 C_layout @@
-        [|
-          -1.472; y_orig +. 0.192;   0.5625; 0.625;   1.0; 1.0; 1.0; 1.0;
-          -1.6  ; y_orig +. 0.192;   0.5   ; 0.625;   1.0; 1.0; 1.0; 1.0;
-          -1.6  ; y_orig +. 0.064;   0.5   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-          -1.472; y_orig +. 0.064;   0.5625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-        |]
-    in
+    let y = -1.004 +. float_of_int (Array.length game.players - game.defeated_count) *. 0.136 in
     if Game.in_battle_phase game then
       GL.uniform2f basic_shader.texture_coords_offset_location 0.0625 0.0
     else if Game.in_move_phase game then
       GL.uniform2f basic_shader.texture_coords_offset_location 0.125 0.0;
-    GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
-    GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-    draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
+    GL.uniform2f basic_shader.vertex_coords_offset_location (-1.6) y;
+    draw_basic basic_shader render.ui_texture render.game_state_buffer GL.TriangleFan 0 4;
     if game.territory_captured then (
       GL.uniform2f basic_shader.texture_coords_offset_location 0.1875 0.0;
-      GL.uniform2f basic_shader.vertex_coords_offset_location 0.128 0.0;
-      draw_basic basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan 0 4;
-      GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
+      GL.uniform2f basic_shader.vertex_coords_offset_location (-1.472) y;
+      draw_basic basic_shader render.ui_texture render.game_state_buffer GL.TriangleFan 0 4
     );
-    GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
+    GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
+    GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
   );
+  let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
+  let gold = Color.{ h = 46.0; s = 0.9; l = 0.5; a = 1.0 } in
   let row = ref game.defeated_count in
   for i = 0 to Array.length game.players - 1 do
-    let player = game.players.((game.current_player + i) mod Array.length game.players) in
+    let player = game.players.((game.our_player + i) mod Array.length game.players) in
     if not player.defeated then (
-      let c = player.color_suite.normal in
+      let pc, cc =
+        if game.current_player = i
+        then player.color_suite.brighter, Color.rgba_of_hsla gold
+        else player.color_suite.darker, Color.rgba_of_hsla { gold with l = 0.4 }
+      in
       let x = -1.184 in
       let y = y_orig -. float_of_int !row *. 0.136 in
       let visual_cards_count = min 3 (List.length player.cards) in
@@ -176,12 +188,12 @@ let draw_game_info_sprites basic_shader render (game : Game.t) =
       let buffer_data =
         Array1.of_array Float32 C_layout @@
           [|(* cartridge *)
-            x         ; y +. 0.064;   0.390625; 0.625;   1.0; 1.0; 1.0; 1.0;
-            x -. 0.416; y +. 0.064;   0.375   ; 0.625;   1.0; 1.0; 1.0; 1.0;
-            x -. 0.416; y -. 0.064;   0.375   ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-            x         ; y -. 0.064;   0.390625; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-            x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-            x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   1.0; 1.0; 1.0; 1.0;
+            x         ; y +. 0.064;   0.390625; 0.625;   cc.r; cc.g; cc.b; 1.0;
+            x -. 0.416; y +. 0.064;   0.375   ; 0.625;   cc.r; cc.g; cc.b; 1.0;
+            x -. 0.416; y -. 0.064;   0.375   ; 0.75 ;   cc.r; cc.g; cc.b; 1.0;
+            x         ; y -. 0.064;   0.390625; 0.75 ;   cc.r; cc.g; cc.b; 1.0;
+            x +. 0.032; y -. 0.064;   0.40625 ; 0.75 ;   cc.r; cc.g; cc.b; 1.0;
+            x +. 0.032; y +. 0.064;   0.40625 ; 0.625;   cc.r; cc.g; cc.b; 1.0;
             (* banner icon *)
             x -. 0.08 ; y +. 0.064;   0.5     ; 0.5  ;   0.0; 0.0; 0.0; 1.0;
             x -. 0.208; y +. 0.064;   0.4375  ; 0.5  ;   0.0; 0.0; 0.0; 1.0;
@@ -193,15 +205,15 @@ let draw_game_info_sprites basic_shader render (game : Game.t) =
             x -. 0.384; y -. 0.064;   card_tx          ; 0.625;   0.0; 0.0; 0.0; 1.0;
             x -. 0.256; y -. 0.064;   card_tx +. 0.0625; 0.625;   0.0; 0.0; 0.0; 1.0;
             (* tab color *)
-            -1.568    ; y +. 0.064;   0.421875; 0.625;   c.r; c.g; c.b; 1.0;
-            -1.6      ; y +. 0.064;   0.40625 ; 0.625;   c.r; c.g; c.b; 1.0;
-            -1.6      ; y -. 0.064;   0.40625 ; 0.75 ;   c.r; c.g; c.b; 1.0;
-            -1.568    ; y -. 0.064;   0.421875; 0.75 ;   c.r; c.g; c.b; 1.0;
+            -1.568    ; y +. 0.064;   0.421875; 0.625;   pc.r; pc.g; pc.b; 1.0;
+            -1.6      ; y +. 0.064;   0.40625 ; 0.625;   pc.r; pc.g; pc.b; 1.0;
+            -1.6      ; y -. 0.064;   0.40625 ; 0.75 ;   pc.r; pc.g; pc.b; 1.0;
+            -1.568    ; y -. 0.064;   0.421875; 0.75 ;   pc.r; pc.g; pc.b; 1.0;
             (* tab cartridge *)
-            -1.568    ; y +. 0.064;   0.4375  ; 0.625;   1.0; 1.0; 1.0; 1.0;
-            -1.6      ; y +. 0.064;   0.421875; 0.625;   1.0; 1.0; 1.0; 1.0;
-            -1.6      ; y -. 0.064;   0.421875; 0.75 ;   1.0; 1.0; 1.0; 1.0;
-            -1.568    ; y -. 0.064;   0.4375  ; 0.75 ;   1.0; 1.0; 1.0; 1.0;
+            -1.568    ; y +. 0.064;   0.4375  ; 0.625;   cc.r; cc.g; cc.b; 1.0;
+            -1.6      ; y +. 0.064;   0.421875; 0.625;   cc.r; cc.g; cc.b; 1.0;
+            -1.6      ; y -. 0.064;   0.421875; 0.75 ;   cc.r; cc.g; cc.b; 1.0;
+            -1.568    ; y -. 0.064;   0.4375  ; 0.75 ;   cc.r; cc.g; cc.b; 1.0;
           |]
       in
       GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
