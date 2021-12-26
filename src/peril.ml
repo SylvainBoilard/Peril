@@ -8,24 +8,23 @@ let attacker_count_selector = ref (Obj.magic () : Ui.army_count_selector)
 let defender_count_selector = ref (Obj.magic () : Ui.army_count_selector)
 
 let update_selected_territory territory (game : Game.t) render =
+  assert (territory <> -1);
   if territory <> game.selected_territory then (
     game.selected_territory <- territory;
-    if territory <> -1 then (
-      let target_filter =
-        if Game.in_battle_phase game
-        then (fun i -> game.owner.(i) <> game.owner.(territory))
-        else (fun i -> game.owner.(i) = game.owner.(territory))
-      in
-      let targets =
-        Array.to_seq game.map.territories.(territory).adjacent
-        |> Seq.filter_map (fun i ->
-               if target_filter i
-               then Some game.map.territories.(i).center
-               else None)
-        |> List.of_rev_seq
-      in
-      Render.update_dashed_buffers render game.map.territories.(territory).center targets
-    )
+    let target_filter =
+      if Game.in_battle_phase game
+      then (fun i -> game.owner.(i) <> game.owner.(territory))
+      else (fun i -> game.owner.(i) = game.owner.(territory))
+    in
+    let targets =
+      Array.to_seq game.map.territories.(territory).adjacent
+      |> Seq.filter_map (fun i ->
+             if target_filter i
+             then Some game.map.territories.(i).center
+             else None)
+      |> List.of_rev_seq
+    in
+    Render.update_dashed_buffers render game.map.territories.(territory).center targets
   )
 
 let sort_dice points order offset len =
@@ -105,12 +104,9 @@ let key_callback (game : Game.t) card_info_tooltip window key _(*scancode*) acti
        game.next_card <- game.next_card + 1;
        game.territory_captured <- false
      );
-     game.selected_territory <- -1;
-     game.current_phase <- Move_SelectTerritory
+     Game.set_current_phase game Move_SelectTerritory
   | Space, Press, Battle_Invade ->
-     game.selected_territory <- -1;
-     game.target_territory <- -1;
-     game.current_phase <- Battle_SelectTerritory
+     Game.set_current_phase game Battle_SelectTerritory
   | Space, Press, (Move_SelectTerritory | Move_Move) ->
      Game.start_next_player_turn game
   | _ -> ()
@@ -157,7 +153,7 @@ let mouse_button_callback
        game.owner.(clicked_territory) <- game.current_player;
        game.current_player <- (game.current_player + 1) mod Array.length game.players;
        if Array.for_all ((<>) 0) game.armies then
-         game.current_phase <- Deploy
+         Game.set_current_phase game Deploy
      )
   | 0, true, Deploy ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
@@ -168,63 +164,60 @@ let mouse_button_callback
            Game.compute_reinforcements game i
          done;
          Game.start_next_player_turn game
-       ) else
-         game.current_player <- (game.current_player + 1) mod Array.length game.players
+       ) else (
+         if game.current_player = game.our_player then
+           Game.clear_highlighted_territories game;
+         game.current_player <- (game.current_player + 1) mod Array.length game.players;
+         if game.current_player = game.our_player then
+           Game.update_highlighted_territories game;
+       )
      )
   | 0, true, Reinforce ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
        game.armies.(clicked_territory) <- game.armies.(clicked_territory) + 1;
        game.armies_to_deploy <- game.armies_to_deploy - 1;
        if game.armies_to_deploy = 0 then
-         game.current_phase <- Battle_SelectTerritory
+         Game.set_current_phase game Battle_SelectTerritory
      )
   | 0, true, Battle_SelectTerritory ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player
         && Game.territory_can_attack game clicked_territory then (
        update_selected_territory clicked_territory game render;
-       game.current_phase <- Battle_SelectTarget
-     ) else
-       update_selected_territory (-1) game render
+       Game.set_current_phase game Battle_SelectTarget
+     )
   | 0, true, Battle_SelectTarget ->
      if clicked_territory <> -1 then (
        if game.owner.(clicked_territory) = game.current_player then (
-         if Game.territory_can_attack game clicked_territory then
-           update_selected_territory clicked_territory game render
-         else (
-           update_selected_territory (-1) game render;
-           game.current_phase <- Battle_SelectTerritory
-         )
+         if Game.territory_can_attack game clicked_territory then (
+           update_selected_territory clicked_territory game render;
+           Game.update_highlighted_territories game
+         ) else
+           Game.set_current_phase game Battle_SelectTerritory
        ) else if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
-         game.current_phase <- Battle_SelectAttackerCount;
+         Game.set_current_phase game Battle_SelectAttackerCount;
          attacker_count_selector := create_selector attacker_count_selector_template game true;
          Render.update_dashed_buffers render
            game.map.territories.(game.selected_territory).center
            [game.map.territories.(clicked_territory).center]
-       ) else (
-         update_selected_territory (-1) game render;
-         game.current_phase <- Battle_SelectTerritory
-       )
-     ) else (
-       update_selected_territory (-1) game render;
-       game.current_phase <- Battle_SelectTerritory
-     )
+       ) else
+         Game.set_current_phase game Battle_SelectTerritory
+     ) else
+       Game.set_current_phase game Battle_SelectTerritory
   | 0, true, Battle_SelectAttackerCount ->
      let selector_center = !attacker_count_selector.center in
      let useable_armies = min 3 (game.armies.(game.selected_territory) - 1) in
      if cursor_coords.x < selector_center.x -. 0.128
         || cursor_coords.x > selector_center.x +. 0.128
         || cursor_coords.y < selector_center.y -. 0.384
-        || cursor_coords.y > selector_center.y +. 0.384 then (
-       update_selected_territory (-1) game render;
-       game.target_territory <- -1;
-       game.current_phase <- Battle_SelectTerritory
-     ) else (
+        || cursor_coords.y > selector_center.y +. 0.384 then
+       Game.set_current_phase game Battle_SelectTerritory
+     else (
        let hovered_selector = Ui.find_hovered_selector !attacker_count_selector cursor_coords in
        if hovered_selector <> -1 && hovered_selector + 1 <= useable_armies then (
          !attacker_count_selector.activated <- hovered_selector;
          game.attacking_armies <- hovered_selector + 1;
-         game.current_phase <- Battle_SelectDefenderCount;
+         Game.set_current_phase game Battle_SelectDefenderCount;
          defender_count_selector := create_selector defender_count_selector_template game false
        )
      )
@@ -234,33 +227,29 @@ let mouse_button_callback
      if hovered_selector <> -1 && hovered_selector + 1 <= useable_armies then (
        !defender_count_selector.activated <- hovered_selector;
        game.defending_armies <- hovered_selector + 1;
-       game.current_phase <- Battle_Resolving
+       Game.set_current_phase game Battle_Resolving
      )
   | 0, true, Move_SelectTerritory ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player
         && Game.territory_can_move game clicked_territory then (
        update_selected_territory clicked_territory game render;
-       game.current_phase <- Move_SelectDestination
-     ) else
-       update_selected_territory (-1) game render
+       Game.set_current_phase game Move_SelectDestination
+     )
   | 0, true, Move_SelectDestination ->
      if clicked_territory <> -1 && game.owner.(clicked_territory) = game.current_player then (
        if Array.mem clicked_territory game.map.territories.(game.selected_territory).adjacent then (
          game.target_territory <- clicked_territory;
-         game.current_phase <- Move_Move;
+         Game.set_current_phase game Move_Move;
          Render.update_dashed_buffers render
            game.map.territories.(game.selected_territory).center
            [game.map.territories.(clicked_territory).center]
-       ) else if Game.territory_can_move game clicked_territory then
-         update_selected_territory clicked_territory game render
-       else (
-         update_selected_territory (-1) game render;
-         game.current_phase <- Move_SelectTerritory
-       )
-     ) else (
-       update_selected_territory (-1) game render;
-       game.current_phase <- Move_SelectTerritory
-     )
+       ) else if Game.territory_can_move game clicked_territory then (
+         update_selected_territory clicked_territory game render;
+         Game.update_highlighted_territories game
+       ) else
+         Game.set_current_phase game Move_SelectTerritory
+     ) else
+       Game.set_current_phase game Move_SelectTerritory
   | 0, true, (Battle_Invade | Move_Move) ->
      if clicked_territory = game.target_territory && game.armies.(game.selected_territory) > 1 then (
        game.armies.(game.selected_territory) <- game.armies.(game.selected_territory) - 1;
@@ -327,6 +316,7 @@ let () =
       map;
       owner = Array.make territory_count (-1);
       armies = Array.make territory_count 0;
+      highlight = Array.make territory_count false;
       cards = Array.map2 make_pair cards_territories cards_armies;
       next_card = 0; traded_in_sets = 0 }
   in
@@ -363,6 +353,11 @@ let () =
         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
       );
 
+      let highlight_outline_color =
+        let t = max 0.0 (mod_float (GLFW.getTime ()) 5.0 -. 4.0) in
+        let l = 1.0 -. (t -. 0.5) *. (t -. 0.5) *. 4.0 in
+        Color.(rgba_of_hsla { (hsla_of_name White) with l })
+      in
       for i = 0 to Array.length map.territories - 1 do
         let armies_str = string_of_int game.armies.(i) in
         let owner = game.owner.(i) in
@@ -371,11 +366,16 @@ let () =
           then game.players.(owner).color_suite.normal
           else Color.rgba_of_name White
         in
+        let outline_color =
+          if game.highlight.(i)
+          then highlight_outline_color
+          else Color.rgba_of_name Black
+        in
         Text.update text_ctx armies_text text_font_sans armies_str Regular 20 ~base_kerning:~-1 StreamDraw;
         Text.update text_ctx armies_outline text_font_sans armies_str Outline 20 ~base_kerning:~-1 StreamDraw;
         let offset = Vec2.{ x = float_of_int (armies_text.width / 2); y = -8.0 } in
         let pos = Vec2.(round (sub (frame_of_world_coords map.territories.(i).center) offset)) in
-        Text.draw text_ctx armies_outline pos (Color.rgba_of_name Black);
+        Text.draw text_ctx armies_outline pos outline_color;
         Text.draw text_ctx armies_text pos color
       done;
 
@@ -570,19 +570,15 @@ let () =
             game.players.(former_owner).cards <- [];
             game.defeated_count <- game.defeated_count + 1
           );
-          if Array.length game.players - 1 = game.defeated_count then (
-            game.selected_territory <- -1;
-            game.target_territory <- -1;
-            game.current_phase <- Over
-          ) else (
+          if Array.length game.players - 1 = game.defeated_count then
+            Game.set_current_phase game Over
+          else (
             game.territory_captured <- true;
-            game.current_phase <- Battle_Invade
+            Game.set_current_phase game Battle_Invade
           )
         ) else (
           game.armies.(atk_i) <- game.armies.(atk_i) - !atk_dead;
-          game.selected_territory <- -1;
-          game.target_territory <- -1;
-          game.current_phase <- Battle_SelectTerritory
+          Game.set_current_phase game Battle_SelectTerritory
         );
         battle_resolution.anim_time <- 0.0;
         dice_sorted := false;
