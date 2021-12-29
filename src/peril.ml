@@ -318,7 +318,8 @@ let () =
       armies = Array.make territory_count 0;
       highlight = Array.make territory_count false;
       cards = Array.map2 make_pair cards_territories cards_armies;
-      next_card = 0; traded_in_sets = 0 }
+      next_card = 0; traded_in_sets = 0;
+      highlight_anim = 0.0 }
   in
   let dice_points = Array.make 5 0 in
   let dice_order = Array.init 5 (fun i -> i mod 3) in
@@ -354,7 +355,7 @@ let () =
       );
 
       let highlight_outline_color =
-        let t = max 0.0 (mod_float (GLFW.getTime ()) 5.0 -. 4.0) in
+        let t = max 0.0 (game.highlight_anim -. 4.0) in
         let l = 1.0 -. (t -. 0.5) *. (t -. 0.5) *. 4.0 in
         Color.(rgba_of_hsla { (hsla_of_name White) with l })
       in
@@ -523,6 +524,12 @@ let () =
        let x = float_of_int (400 - territory_text.width / 2) in
        Text.draw text_ctx territory_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
     end;
+
+    if game.current_player = game.our_player then (
+      game.highlight_anim <- game.highlight_anim +. 1.0 /. 60.0;
+      if game.highlight_anim >= 5.0 then
+        game.highlight_anim <- game.highlight_anim -. 5.0
+    );
 
     if game.selected_territory <> -1 then (
       if game.target_territory = -1 then

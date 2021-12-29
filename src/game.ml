@@ -32,6 +32,7 @@ type t = {
     cards: (int * int) array;
     mutable next_card: int;
     mutable traded_in_sets: int;
+    mutable highlight_anim: float;
   }
 
 let in_main_loop_phase game = match game.current_phase with
@@ -92,7 +93,8 @@ let update_highlighted_territories game =
   in
   for i = 0 to Array.length game.highlight - 1 do
     game.highlight.(i) <- highlight_filter i
-  done
+  done;
+  game.highlight_anim <- 0.0
 
 let clear_highlighted_territories game =
   Array.(fill game.highlight 0 (length game.highlight) false)
