@@ -27,8 +27,8 @@ let load_background filename =
     |] |> Array1.of_array Float32 C_layout
   in
   let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
+  GL.bindBuffer ArrayBuffer buffer;
+  GL.bufferData ArrayBuffer buffer_data StaticDraw;
   texture, buffer
 
 let load_dot () =
@@ -41,8 +41,8 @@ let load_dot () =
     |] |> Array1.of_array Float32 C_layout
   in
   let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
+  GL.bindBuffer ArrayBuffer buffer;
+  GL.bufferData ArrayBuffer buffer_data StaticDraw;
   texture, buffer
 
 let load_game_state_buffer () =
@@ -54,8 +54,8 @@ let load_game_state_buffer () =
     |] |> Array1.of_array Float32 C_layout
   in
   let buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StaticDraw;
+  GL.bindBuffer ArrayBuffer buffer;
+  GL.bufferData ArrayBuffer buffer_data StaticDraw;
   buffer
 
 let make background_filename =
@@ -98,19 +98,19 @@ let update_dashed_buffers render (origin : Vec2.t) targets =
     elem_data.{offset + 1} <- i + 1
   done;
   render.dashed_elem_count <- elem_count;
-  GL.bindBuffer GL.ArrayBuffer render.dashed_buffer;
-  GL.bufferData GL.ArrayBuffer vertex_data GL.DynamicDraw;
-  GL.bindBuffer GL.ElementArrayBuffer render.dashed_elem_buffer;
-  GL.bufferData GL.ElementArrayBuffer elem_data GL.DynamicDraw
+  GL.bindBuffer ArrayBuffer render.dashed_buffer;
+  GL.bufferData ArrayBuffer vertex_data DynamicDraw;
+  GL.bindBuffer ElementArrayBuffer render.dashed_elem_buffer;
+  GL.bufferData ElementArrayBuffer elem_data DynamicDraw
 
 let draw_basic_prepare shader texture buffer =
-  GL.bindTexture GL.Texture2D texture;
-  GL.bindBuffer GL.ArrayBuffer buffer;
-  GL.vertexAttribPointer shader.vertex_coords_location 2 GL.Float false 32 0;
+  GL.bindTexture Texture2D texture;
+  GL.bindBuffer ArrayBuffer buffer;
+  GL.vertexAttribPointer shader.vertex_coords_location 2 Float false 32 0;
   GL.enableVertexAttribArray shader.vertex_coords_location;
-  GL.vertexAttribPointer shader.vertex_texture_coords_location 2 GL.Float false 32 8;
+  GL.vertexAttribPointer shader.vertex_texture_coords_location 2 Float false 32 8;
   GL.enableVertexAttribArray shader.vertex_texture_coords_location;
-  GL.vertexAttribPointer shader.vertex_color_location 4 GL.Float false 32 16;
+  GL.vertexAttribPointer shader.vertex_color_location 4 Float false 32 16;
   GL.enableVertexAttribArray shader.vertex_color_location
 
 let draw_basic_teardown shader =
@@ -123,8 +123,8 @@ let draw_basic shader texture buffer ?elem_buffer mode first count =
   begin match elem_buffer with
   | None -> GL.drawArrays mode first count
   | Some elem_buffer ->
-     GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-     GL.drawElements mode count GL.UnsignedShort (first * 2)
+     GL.bindBuffer ElementArrayBuffer elem_buffer;
+     GL.drawElements mode count UnsignedShort (first * 2)
   end;
   draw_basic_teardown shader
 
@@ -133,8 +133,8 @@ let draw_basic_multi shader texture buffer ?elem_buffer mode list =
   begin match elem_buffer with
   | None -> List.iter (fun (first, count) -> GL.drawArrays mode first count) list
   | Some elem_buffer ->
-     GL.bindBuffer GL.ElementArrayBuffer elem_buffer;
-     List.iter (fun (first, count) -> GL.drawElements mode count GL.UnsignedShort (first * 2)) list
+     GL.bindBuffer ElementArrayBuffer elem_buffer;
+     List.iter (fun (first, count) -> GL.drawElements mode count UnsignedShort (first * 2)) list
   end;
   draw_basic_teardown shader
 
@@ -146,11 +146,11 @@ let draw_game_info_sprites basic_shader render (game : Game.t) =
     else if Game.in_move_phase game then
       GL.uniform2f basic_shader.texture_coords_offset_location 0.125 0.0;
     GL.uniform2f basic_shader.vertex_coords_offset_location (-1.6) y;
-    draw_basic basic_shader render.ui_texture render.game_state_buffer GL.TriangleFan 0 4;
+    draw_basic basic_shader render.ui_texture render.game_state_buffer TriangleFan 0 4;
     if game.territory_captured then (
       GL.uniform2f basic_shader.texture_coords_offset_location 0.1875 0.0;
       GL.uniform2f basic_shader.vertex_coords_offset_location (-1.472) y;
-      draw_basic basic_shader render.ui_texture render.game_state_buffer GL.TriangleFan 0 4
+      draw_basic basic_shader render.ui_texture render.game_state_buffer TriangleFan 0 4
     );
     GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
     GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
@@ -201,9 +201,9 @@ let draw_game_info_sprites basic_shader render (game : Game.t) =
             -1.568    ; y -. 0.064;   0.4375  ; 0.75 ;   cc.r; cc.g; cc.b; 1.0;
           |]
       in
-      GL.bindBuffer GL.ArrayBuffer render.cartridge_buffer;
-      GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-      draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer GL.TriangleFan [0, 6; 6, 4; 10, 4; 14, 4; 18, 4];
+      GL.bindBuffer ArrayBuffer render.cartridge_buffer;
+      GL.bufferData ArrayBuffer buffer_data StreamDraw;
+      draw_basic_multi basic_shader render.ui_texture render.cartridge_buffer TriangleFan [0, 6; 6, 4; 10, 4; 14, 4; 18, 4];
       incr row
     )
   done

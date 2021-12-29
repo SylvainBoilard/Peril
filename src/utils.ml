@@ -127,8 +127,8 @@ let load_program directory name =
     end;
     shader
   in
-  let vertex_shader = load_shader GL.VertexShader ".vert" in
-  let fragment_shader = load_shader GL.FragmentShader ".frag" in
+  let vertex_shader = load_shader VertexShader ".vert" in
+  let fragment_shader = load_shader FragmentShader ".frag" in
   let program = GL.createProgram () in
   GL.attachShader program vertex_shader;
   GL.attachShader program fragment_shader;
@@ -181,9 +181,9 @@ let load_texture filename =
   | _ -> failwith "load_texture: image format unsupported"
   end;
   let texture = GL.genTexture () in
-  GL.bindTexture GL.Texture2D texture;
-  GL.texParameter GL.Texture2D GL.MinFilter GL.Nearest;
-  GL.texParameter GL.Texture2D GL.MagFilter GL.Nearest;
-  GL.texImage2D GL.Texture2D 0 GL.RGBA image.width image.height 0 GL.RGBA GL.UnsignedByte;
-  GL.texSubImage2D GL.Texture2D 0 0 0 GL.RGBA GL.UnsignedByte (Obj.magic pixels);
+  GL.bindTexture Texture2D texture;
+  GL.texParameter Texture2D MinFilter Nearest;
+  GL.texParameter Texture2D MagFilter Nearest;
+  GL.texImage2D Texture2D 0 RGBA image.width image.height 0 RGBA UnsignedByte;
+  GL.texSubImage2D Texture2D 0 0 0 RGBA UnsignedByte (Obj.magic pixels);
   texture

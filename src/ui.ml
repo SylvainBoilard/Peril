@@ -71,14 +71,14 @@ let draw_army_count_selector basic_shader selector_data cursor_coords =
        0.128; -0.128;   0.125; 0.25;   1.0; 1.0; 1.0; 1.0;
     |] |> Array1.of_array Float32 C_layout
   in
-  GL.bindBuffer GL.ArrayBuffer selector_data.vertex_buffer;
-  GL.bufferData GL.ArrayBuffer buffer_data GL.StreamDraw;
+  GL.bindBuffer ArrayBuffer selector_data.vertex_buffer;
+  GL.bufferData ArrayBuffer buffer_data StreamDraw;
   let bg_l = if selector_data.activated = -1 then 0.75 else Float.lerp 0.5 0.75 anim_time_colo in
   let bg_a = if selector_data.activated = -1 then 0.5 *. anim_time_colo else 0.5 in
   GL.uniform4f basic_shader.ambient_color_location bg_l bg_l bg_l bg_a;
   GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
   GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0;
-  Render.draw_basic basic_shader selector_data.texture selector_data.vertex_buffer GL.TriangleStrip 0 8;
+  Render.draw_basic basic_shader selector_data.texture selector_data.vertex_buffer TriangleStrip 0 8;
   let hovered_selector = find_hovered_selector selector_data cursor_coords in
   for i = 0 to selector_data.selector_count - 1 do
     let i_f = float_of_int i in
@@ -98,7 +98,7 @@ let draw_army_count_selector basic_shader selector_data cursor_coords =
     GL.uniform4f basic_shader.ambient_color_location c.r c.g c.b a;
     GL.uniform2f basic_shader.vertex_coords_offset_location selector_data.center.x y;
     GL.uniform2f basic_shader.texture_coords_offset_location tx selector_data.base_texture_coords.y;
-    Render.draw_basic basic_shader selector_data.texture selector_data.vertex_buffer GL.TriangleFan 8 4
+    Render.draw_basic basic_shader selector_data.texture selector_data.vertex_buffer TriangleFan 8 4
   done
 
 type battle_resolution = {
@@ -143,11 +143,11 @@ let make_battle_resolution texture =
     |] |> Array1.of_array Int16_unsigned C_layout
   in
   let vertex_buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer vertex_buffer;
-  GL.bufferData GL.ArrayBuffer vertex_buffer_data GL.StaticDraw;
+  GL.bindBuffer ArrayBuffer vertex_buffer;
+  GL.bufferData ArrayBuffer vertex_buffer_data StaticDraw;
   let elem_buffer = GL.genBuffer () in
-  GL.bindBuffer GL.ArrayBuffer elem_buffer;
-  GL.bufferData GL.ArrayBuffer elem_buffer_data GL.StaticDraw;
+  GL.bindBuffer ArrayBuffer elem_buffer;
+  GL.bufferData ArrayBuffer elem_buffer_data StaticDraw;
   { vertex_buffer; elem_buffer; arrow_buffer = GL.genBuffer (); texture; anim_time = 0.0 }
 
 let draw_battle_resolution
@@ -183,9 +183,9 @@ let draw_battle_resolution
                0.172     ; y -. 0.032;   0.375   ; 0.625 ;   1.0; 1.0; 1.0; arrow_t_i_f;
                0.172     ; y +. 0.032;   0.375   ; 0.5625;   1.0; 1.0; 1.0; arrow_t_i_f |]
     in
-    GL.bindBuffer GL.ArrayBuffer battle_resolution_data.arrow_buffer;
-    GL.bufferData GL.ArrayBuffer buffer_data StreamDraw;
-    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.arrow_buffer GL.TriangleFan 0 6
+    GL.bindBuffer ArrayBuffer battle_resolution_data.arrow_buffer;
+    GL.bufferData ArrayBuffer buffer_data StreamDraw;
+    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.arrow_buffer TriangleFan 0 6
   done;
   for i = 0 to attacking_armies - 1 do
     let o = dice_order.(i) in
@@ -200,7 +200,7 @@ let draw_battle_resolution
     in
     GL.uniform2f basic_shader.vertex_coords_offset_location (-0.3) y;
     GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i) *. 0.125) 0.0;
-    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer GL.TriangleFan 16 4
+    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer TriangleFan 16 4
   done;
   for i = 0 to defending_armies - 1 do
     let o = dice_order.(i + 3) in
@@ -215,7 +215,7 @@ let draw_battle_resolution
     in
     GL.uniform2f basic_shader.vertex_coords_offset_location 0.3 y;
     GL.uniform2f basic_shader.texture_coords_offset_location (float_of_int dice_points.(i + 3) *. 0.125) 0.25;
-    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer GL.TriangleFan 16 4
+    Render.draw_basic basic_shader battle_resolution_data.texture battle_resolution_data.vertex_buffer TriangleFan 16 4
   done
 
 type card_info_tooltip = {
@@ -288,8 +288,8 @@ let update_card_info_tooltip card_info_tooltip cards (game : Game.t) =
       x_max; 0.0  ;   0.0; 0.0;   0.0; 0.0; 0.0; 0.75;
     |] |> Array1.of_array Float32 C_layout
   in
-  GL.bindBuffer GL.ArrayBuffer card_info_tooltip.vertex_buffer;
-  GL.bufferData GL.ArrayBuffer vertex_buffer_data GL.DynamicDraw
+  GL.bindBuffer ArrayBuffer card_info_tooltip.vertex_buffer;
+  GL.bufferData ArrayBuffer vertex_buffer_data DynamicDraw
 
 let draw_card_info_tooltip basic_shader card_info_tooltip (position : Vec2.t) =
   GL.uniform2f basic_shader.vertex_coords_offset_location position.x position.y;

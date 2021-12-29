@@ -54,10 +54,10 @@ let tex_size_f = float_of_int tex_size
 let init () =
   let program = Utils.load_program "shaders" "text" in
   let glyphs_texture = GL.genTexture () in
-  GL.bindTexture GL.Texture2D glyphs_texture;
-  GL.texImage2D GL.Texture2D 0 GL.Alpha tex_size tex_size 0 GL.Alpha GL.UnsignedByte;
-  GL.texParameter GL.Texture2D GL.MinFilter GL.Nearest;
-  GL.texParameter GL.Texture2D GL.MagFilter GL.Nearest;
+  GL.bindTexture Texture2D glyphs_texture;
+  GL.texImage2D Texture2D 0 Alpha tex_size tex_size 0 Alpha UnsignedByte;
+  GL.texParameter Texture2D MinFilter Nearest;
+  GL.texParameter Texture2D MagFilter Nearest;
   FreeType.init ();
   { program;
     vertex_coords_location = GL.getAttribLocation program "VertexCoords";
@@ -106,9 +106,9 @@ let load_glyph ctx font index kind size =
       tex_bottom = float_of_int (ctx.glyph_cur_y + bitmap.rows) /. tex_size_f }
   in
   Hashtbl.add font.glyphs (glyph_key index kind size) glyph_data;
-  GL.pixelStorei GL.UnpackAlignment 1;
-  GL.bindTexture GL.Texture2D ctx.glyphs_texture;
-  GL.texSubImage2D GL.Texture2D 0 ctx.glyph_cur_x ctx.glyph_cur_y GL.Alpha GL.UnsignedByte bitmap.data;
+  GL.pixelStorei UnpackAlignment 1;
+  GL.bindTexture Texture2D ctx.glyphs_texture;
+  GL.texSubImage2D Texture2D 0 ctx.glyph_cur_x ctx.glyph_cur_y Alpha UnsignedByte bitmap.data;
   ctx.glyph_cur_x <- ctx.glyph_cur_x + bitmap.width;
   ctx.glyph_max_h <- max ctx.glyph_max_h bitmap.rows;
   glyph_data
@@ -173,30 +173,30 @@ let update ctx text font str glyph_kind size ?(base_kerning=0) usage =
   in
   text.width <- loop ~-base_kerning 0 0;
   text.elements_count <- str_len * 6;
-  GL.bindBuffer GL.ArrayBuffer text.data_buffer;
-  GL.bufferData GL.ArrayBuffer text_data usage;
-  GL.bindBuffer GL.ElementArrayBuffer text.indices_buffer;
-  GL.bufferData GL.ElementArrayBuffer indices usage
+  GL.bindBuffer ArrayBuffer text.data_buffer;
+  GL.bufferData ArrayBuffer text_data usage;
+  GL.bindBuffer ElementArrayBuffer text.indices_buffer;
+  GL.bufferData ElementArrayBuffer indices usage
 
 let destroy text =
   GL.deleteBuffer text.data_buffer;
   GL.deleteBuffer text.indices_buffer
 
 let draw ctx text (position : Vec2.t) (color : Color.rgba) =
-  GL.enable GL.Blend;
+  GL.enable Blend;
   GL.useProgram ctx.program;
   GL.uniform2f ctx.view_offset_location (400.0 -. position.x) (position.y -. 250.0);
   GL.uniform4f ctx.color_location color.r color.g color.b color.a;
   GL.activeTexture 0;
   GL.uniform1i ctx.face_texture_location 0;
-  GL.bindTexture GL.Texture2D ctx.glyphs_texture;
-  GL.bindBuffer GL.ArrayBuffer text.data_buffer;
-  GL.vertexAttribPointer ctx.vertex_coords_location 2 GL.Float false 16 0;
+  GL.bindTexture Texture2D ctx.glyphs_texture;
+  GL.bindBuffer ArrayBuffer text.data_buffer;
+  GL.vertexAttribPointer ctx.vertex_coords_location 2 Float false 16 0;
   GL.enableVertexAttribArray ctx.vertex_coords_location;
-  GL.vertexAttribPointer ctx.vertex_texture_coords_location 2 GL.Float false 16 8;
+  GL.vertexAttribPointer ctx.vertex_texture_coords_location 2 Float false 16 8;
   GL.enableVertexAttribArray ctx.vertex_texture_coords_location;
-  GL.bindBuffer GL.ElementArrayBuffer text.indices_buffer;
-  GL.drawElements GL.Triangles text.elements_count GL.UnsignedShort 0;
+  GL.bindBuffer ElementArrayBuffer text.indices_buffer;
+  GL.drawElements Triangles text.elements_count UnsignedShort 0;
   GL.disableVertexAttribArray ctx.vertex_texture_coords_location;
   GL.disableVertexAttribArray ctx.vertex_coords_location;
-  GL.disable GL.Blend
+  GL.disable Blend

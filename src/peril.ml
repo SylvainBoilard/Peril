@@ -128,7 +128,7 @@ let mouse_button_callback
        | Corner n ->
           let cursor_pos = frame_of_world_coords st.shape.(n) in
           GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
-          GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
+          GLFW.setInputMode window Cursor Hidden
        | Edge (n, m) ->
           let new_shape =
             Array.init (Array.length st.shape + 1) (fun i ->
@@ -144,7 +144,7 @@ let mouse_button_callback
           selected_poi := Corner (n + 1);
           let cursor_pos = frame_of_world_coords new_shape.(n + 1) in
           GLFW.setCursorPos window cursor_pos.x cursor_pos.y;
-          GLFW.setInputMode window GLFW.Cursor GLFW.Hidden
+          GLFW.setInputMode window Cursor Hidden
        | NoPOI -> update_selected_territory clicked_territory game render
      )
   | 0, true, Claim ->
@@ -260,7 +260,7 @@ let mouse_button_callback
      let new_center = compute_shape_barycenter st.shape in
      game.map.territories.(game.selected_territory) <- { st with center = new_center };
      selected_poi := NoPOI;
-     GLFW.setInputMode window GLFW.Cursor GLFW.Normal
+     GLFW.setInputMode window Cursor Normal
   | _ -> ()
 
 let cursor_pos_callback (game : Game.t) _(*window*) x y =
@@ -277,13 +277,13 @@ let () =
   let map = Map.load_from_xml_file "maps/Earth.xml" in
   Map.validate map;
   GLFW.init ();
-  GLFW.windowHint GLFW.ClientApi GLFW.OpenGLESApi;
-  GLFW.windowHint GLFW.ContextVersionMajor 2;
-  GLFW.windowHint GLFW.ContextVersionMinor 0;
-  GLFW.windowHint GLFW.Resizable false;
+  GLFW.windowHint ClientApi OpenGLESApi;
+  GLFW.windowHint ContextVersionMajor 2;
+  GLFW.windowHint ContextVersionMinor 0;
+  GLFW.windowHint Resizable false;
   let window = GLFW.createWindow 800 500 "Peril" () in
   GLFW.makeContextCurrent (Some window);
-  GL.blendFunc GL.SrcAlpha GL.OneMinusSrcAlpha;
+  GL.blendFunc SrcAlpha OneMinusSrcAlpha;
   let basic_shader = load_basic_shader () in
   let text_ctx = Text.init () in
   GL.releaseShaderCompiler ();
@@ -341,7 +341,7 @@ let () =
     GL.uniform1i basic_shader.texture_location 0;
     GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
-    Render.draw_basic basic_shader render.background_texture render.background_buffer GL.TriangleFan 0 4;
+    Render.draw_basic basic_shader render.background_texture render.background_buffer TriangleFan 0 4;
 
     if not !edition_mode then (
       if game.selected_territory <> -1 then (
@@ -349,7 +349,7 @@ let () =
         GL.lineWidth 3.0;
         Render.draw_basic
           basic_shader render.dashed_texture render.dashed_buffer
-          ~elem_buffer:render.dashed_elem_buffer GL.Lines 0 render.dashed_elem_count;
+          ~elem_buffer:render.dashed_elem_buffer Lines 0 render.dashed_elem_count;
         GL.lineWidth 1.0;
         GL.uniform2f basic_shader.texture_coords_offset_location 0.0 0.0
       );
@@ -385,7 +385,7 @@ let () =
       GL.uniform1i basic_shader.texture_location 0;
       GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
 
-      GL.enable GL.Blend;
+      GL.enable Blend;
       begin match game.current_phase with
       | Battle_SelectAttackerCount ->
          !attacker_count_selector.anim_time <- Float.min 1.0 (!attacker_count_selector.anim_time +. 0.05);
@@ -406,7 +406,7 @@ let () =
       GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0;
 
       Render.draw_game_info_sprites basic_shader render game;
-      GL.disable GL.Blend;
+      GL.disable Blend;
       let y_orig = -1.068 +. float_of_int (Array.length game.players) *. 0.136 in
       let row = ref game.defeated_count in
       for i = 0 to Array.length game.players - 1 do
@@ -430,9 +430,9 @@ let () =
         GL.activeTexture 0;
         GL.uniform1i basic_shader.texture_location 0;
         GL.uniform4f basic_shader.ambient_color_location 1.0 1.0 1.0 1.0;
-        GL.enable GL.Blend;
+        GL.enable Blend;
         Ui.draw_card_info_tooltip basic_shader card_info_tooltip { x = -1.568; y = y_orig +. 0.008 };
-        GL.disable GL.Blend
+        GL.disable Blend
       )
     ) else ( (* !edition_mode *)
       let vertex_count = Array.fold_left (fun c (t : Map.territory) -> c + Array.length t.shape) 0 map.territories in
@@ -458,9 +458,9 @@ let () =
               ) i t.shape, (i, Array.length t.shape) :: l
           ) (0, []) map.territories
       in
-      GL.bindBuffer GL.ArrayBuffer render.border_buffer;
-      GL.bufferData GL.ArrayBuffer border_data GL.StreamDraw;
-      Render.draw_basic_multi basic_shader render.white_texture render.border_buffer GL.LineLoop border_draws;
+      GL.bindBuffer ArrayBuffer render.border_buffer;
+      GL.bufferData ArrayBuffer border_data StreamDraw;
+      Render.draw_basic_multi basic_shader render.white_texture render.border_buffer LineLoop border_draws;
 
       if game.selected_territory <> -1 && !selected_poi = NoPOI then (
         let selected_territory_shape = map.territories.(game.selected_territory).shape in
@@ -472,9 +472,9 @@ let () =
         match dot_coords with
         | Some coords ->
            GL.uniform2f basic_shader.vertex_coords_offset_location coords.x coords.y;
-           GL.enable GL.Blend;
-           Render.draw_basic basic_shader render.dot_texture render.dot_buffer GL.TriangleFan 0 4;
-           GL.disable GL.Blend;
+           GL.enable Blend;
+           Render.draw_basic basic_shader render.dot_texture render.dot_buffer TriangleFan 0 4;
+           GL.disable Blend;
            GL.uniform2f basic_shader.vertex_coords_offset_location 0.0 0.0
         | None -> ()
       )
@@ -510,9 +510,9 @@ let () =
       | Move_Move -> ", move more armies to this territory, or press Space to pass"
       | Over -> " conquered the world!"
     in
-    Text.update text_ctx name_outline text_font_serif name Outline 16 GL.StreamDraw;
-    Text.update text_ctx name_text text_font_serif name Regular 16 GL.StreamDraw;
-    Text.update text_ctx status_text text_font_serif status Regular 16 GL.StreamDraw;
+    Text.update text_ctx name_outline text_font_serif name Outline 16 StreamDraw;
+    Text.update text_ctx name_text text_font_serif name Regular 16 StreamDraw;
+    Text.update text_ctx status_text text_font_serif status Regular 16 StreamDraw;
     Text.draw text_ctx name_outline { x = 10.0; y = 26.0 } (Color.rgba_of_name Black);
     Text.draw text_ctx name_text { x = 10.0; y = 26.0 } name_color;
     Text.draw text_ctx status_text { x = float_of_int (10 + name_text.width); y = 26.0 } (Color.rgba_of_name White);
@@ -520,7 +520,7 @@ let () =
     begin match Map.find_territory_at_coords map cursor_coords, game.selected_territory with
     | -1, -1 -> ()
     | -1, i | i, _ ->
-       Text.update text_ctx territory_text text_font_serif map.territories.(i).name Regular 16 GL.StreamDraw;
+       Text.update text_ctx territory_text text_font_serif map.territories.(i).name Regular 16 StreamDraw;
        let x = float_of_int (400 - territory_text.width / 2) in
        Text.draw text_ctx territory_text Vec2.{ x; y = 470.0 } (Color.rgba_of_name White)
     end;
@@ -597,8 +597,8 @@ let () =
 
     let fps_count = truncate (float_of_int !frame_time_count /. !frame_time +. 0.5) in
     let fps_str = Printf.sprintf "%d FPS" fps_count in
-    Text.update text_ctx fps_outline text_font_sans fps_str Outline 10 GL.StreamDraw;
-    Text.update text_ctx fps_text text_font_sans fps_str Regular 10 GL.StreamDraw;
+    Text.update text_ctx fps_outline text_font_sans fps_str Outline 10 StreamDraw;
+    Text.update text_ctx fps_text text_font_sans fps_str Regular 10 StreamDraw;
     let fps_pos = Vec2.{ x = float_of_int (795 - fps_text.width); y = 15.0 } in
     let fps_color =
       if fps_count > 57 then
