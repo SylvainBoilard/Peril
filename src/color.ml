@@ -66,6 +66,27 @@ let rgba_of_hsla c =
   in
   { r; g; b; a = c.a }
 
+let hsla_of_rgba c =
+  let h, min_c, max_c = match c.r < c.g, c.g < c.b, c.b < c.r with
+    | true, true, _ ->
+       240.0 -. 60.0 *. (c.g -. c.r) /. (c.b -. c.r), c.r, c.b
+    | true, false, true ->
+       120.0 -. 60.0 *. (c.r -. c.b) /. (c.g -. c.b), c.b, c.g
+    | true, false, false ->
+       120.0 +. 60.0 *. (c.b -. c.r) /. (c.g -. c.r), c.r, c.g
+    | false, false, _ ->
+         0.0 +. 60.0 *. (c.g -. c.b) /. (c.r -. c.b), c.b, c.r
+    | false, true, true ->
+       360.0 -. 60.0 *. (c.b -. c.g) /. (c.r -. c.g), c.g, c.r
+    | false, true, false ->
+       240.0 +. 60.0 *. (c.r -. c.g) /. (c.b -. c.g), c.g, c.b
+  in
+  let lx2 = min_c +. max_c in
+  let s = (max_c -. min_c) /. (1.0 -. abs_float (1.0 -. lx2)) in
+  { h = if Float.is_nan h then 0.0 else h;
+    s = if Float.is_nan s then 0.0 else s;
+    l = lx2 /. 2.0; a = c.a }
+
 let make_suite c =
   let normal = rgba_of_hsla c in
   let darker = rgba_of_hsla { c with l = c.l *. 0.9 } in
