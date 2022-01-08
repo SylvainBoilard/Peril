@@ -13,8 +13,21 @@ type phase =
   | Move_Move
   | Over
 
+type player = {
+    name: string;
+    color: Color.hsla;
+    color_suite: Color.suite;
+    mutable defeated: bool;
+    mutable reinforcements: int;
+    mutable cards: int list;
+  }
+
+let make_player name color =
+  { name; color; color_suite = Color.make_suite color;
+    defeated = false; reinforcements = 0; cards = [] }
+
 type t = {
-    players: Player.t array;
+    players: player array;
     our_player: int;
     mutable defeated_count: int;
     mutable current_player: int;

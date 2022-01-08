@@ -307,9 +307,9 @@ let () =
     Array.shuffle cards_territories;
     Array.shuffle cards_armies;
     { Game.players =
-        [| Player.make "Roland" (Color.hsla_of_name Red);
-           Player.make "Valérie" { (Color.hsla_of_name Green) with l = 0.4 };
-           Player.make "Basile" { (Color.hsla_of_name Blue) with l = 0.6 } |];
+        [| Game.make_player "Roland" (Color.hsla_of_name Red);
+           Game.make_player "Valérie" { (Color.hsla_of_name Green) with l = 0.4 };
+           Game.make_player "Basile" { (Color.hsla_of_name Blue) with l = 0.6 } |];
       our_player = 0; defeated_count = 0; current_player = 0; current_phase = Claim;
       selected_territory = -1; target_territory = -1; armies_to_deploy = 0;
       attacking_armies = 0; defending_armies = 0; territory_captured = false;
